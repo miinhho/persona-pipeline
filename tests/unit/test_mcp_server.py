@@ -81,3 +81,45 @@ def test_unknown_country_raises_tool_error(korea_store, monkeypatch, tmp_path):
     monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
     with pytest.raises(ToolError, match="not built"):
         mcp_server.sample_personas(country="France", n=1)
+
+
+from unittest.mock import MagicMock
+from mcp.server.fastmcp.exceptions import ToolError as _ToolError
+
+from persona_pipeline.mcp_server import _observe as _observe_for_test  # noqa: E402
+
+
+def test_observe_logs_start_and_finish_when_ctx_provided():
+    ctx = MagicMock()
+    with _observe_for_test(ctx, "myop", x=1, y="a"):
+        pass
+    # Two info calls: start with params, finish with elapsed_ms
+    assert ctx.info.call_count == 2
+    start_msg = ctx.info.call_args_list[0].args[0]
+    finish_msg = ctx.info.call_args_list[1].args[0]
+    assert "myop" in start_msg and "x=1" in start_msg and "y='a'" in start_msg
+    assert "myop" in finish_msg and "ms" in finish_msg
+
+
+def test_observe_silent_when_ctx_is_none():
+    # Must not raise; must not require ctx methods
+    with _observe_for_test(None, "myop", x=1):
+        pass
+
+
+def test_observe_logs_error_on_unexpected_exception():
+    ctx = MagicMock()
+    with pytest.raises(ValueError):
+        with _observe_for_test(ctx, "myop"):
+            raise ValueError("boom")
+    ctx.error.assert_called_once()
+    err_msg = ctx.error.call_args.args[0]
+    assert "ValueError" in err_msg and "boom" in err_msg
+
+
+def test_observe_does_not_log_error_on_tool_error():
+    ctx = MagicMock()
+    with pytest.raises(_ToolError):
+        with _observe_for_test(ctx, "myop"):
+            raise _ToolError("user-facing")
+    ctx.error.assert_not_called()

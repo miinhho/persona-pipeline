@@ -4,13 +4,41 @@ Run with: `python -m persona_pipeline.mcp_server` (stdio transport).
 """
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from contextlib import contextmanager
+from time import perf_counter
+
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from persona_pipeline import store
 from persona_pipeline.mappings import get_mappings
 
 mcp = FastMCP("persona-store")
+
+
+@contextmanager
+def _observe(ctx: Context | None, op: str, **params):
+    """Bracket a tool call with start/finish/elapsed/error logs through MCP Context.
+
+    `ToolError` is treated as user-facing and re-raised silently (the message is the
+    response). Any other exception is logged as an error before re-raising — these
+    indicate server-side bugs that we want surfaced to the client log channel.
+    """
+    t0 = perf_counter()
+    if ctx is not None:
+        ctx.info(f"{op}: " + " ".join(f"{k}={v!r}" for k, v in params.items()))
+    try:
+        yield
+    except ToolError:
+        raise
+    except Exception as e:
+        if ctx is not None:
+            ctx.error(f"{op} failed: {type(e).__name__}: {e}")
+        raise
+    finally:
+        ms = int((perf_counter() - t0) * 1000)
+        if ctx is not None:
+            ctx.info(f"{op}: done in {ms}ms")
 
 
 def _validate_country(country: str) -> None:
