@@ -41,9 +41,5 @@ MAPPINGS = CountryMappings(
     sex_map={"男": "男", "女": "女"},
     occupation_source_col="occupation",
     occupation_group_definitions=JSOC_GROUP_DEFINITIONS,
-    age_gen_keywords={
-        "若年": ["若年", "若い", "青年", "20代", "30代前半"],
-        "中高年": ["中高年", "中年", "壮年", "30代", "40代", "50代", "60代前半"],
-        "高齢": ["高齢", "老年", "60代", "70代", "80代", "シニア"],
-    },
+    age_gen_labels=["若年", "中高年", "高齢"],
 )

@@ -1,8 +1,13 @@
+import asyncio
+import json
+from unittest.mock import MagicMock
+
 import polars as pl
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
 from persona_pipeline import mcp_server, store
+from persona_pipeline.mcp_server import _observe, _validate_axis_names
 
 
 @pytest.fixture
@@ -83,15 +88,9 @@ def test_unknown_country_raises_tool_error(korea_store, monkeypatch, tmp_path):
         mcp_server.sample_personas(country="France", n=1)
 
 
-from unittest.mock import MagicMock
-from mcp.server.fastmcp.exceptions import ToolError as _ToolError
-
-from persona_pipeline.mcp_server import _observe as _observe_for_test  # noqa: E402
-
-
 def test_observe_logs_start_and_finish_when_ctx_provided():
     ctx = MagicMock()
-    with _observe_for_test(ctx, "myop", x=1, y="a"):
+    with _observe(ctx, "myop", x=1, y="a"):
         pass
     # Two info calls: start with params, finish with elapsed_ms
     assert ctx.info.call_count == 2
@@ -103,14 +102,14 @@ def test_observe_logs_start_and_finish_when_ctx_provided():
 
 def test_observe_silent_when_ctx_is_none():
     # Must not raise; must not require ctx methods
-    with _observe_for_test(None, "myop", x=1):
+    with _observe(None, "myop", x=1):
         pass
 
 
 def test_observe_logs_error_on_unexpected_exception():
     ctx = MagicMock()
     with pytest.raises(ValueError):
-        with _observe_for_test(ctx, "myop"):
+        with _observe(ctx, "myop"):
             raise ValueError("boom")
     ctx.error.assert_called_once()
     err_msg = ctx.error.call_args.args[0]
@@ -119,23 +118,20 @@ def test_observe_logs_error_on_unexpected_exception():
 
 def test_observe_does_not_log_error_on_tool_error():
     ctx = MagicMock()
-    with pytest.raises(_ToolError):
-        with _observe_for_test(ctx, "myop"):
-            raise _ToolError("user-facing")
+    with pytest.raises(ToolError):
+        with _observe(ctx, "myop"):
+            raise ToolError("user-facing")
     ctx.error.assert_not_called()
-
-
-from persona_pipeline.mcp_server import _validate_axis_names as _validate_for_test  # noqa: E402
 
 
 def test_validate_axis_names_passes_when_all_valid():
     # Korea has 4 axes; no exception expected
-    _validate_for_test("Korea", ["region", "sex"], purpose="filter axis")
+    _validate_axis_names("Korea", ["region", "sex"], purpose="filter axis")
 
 
 def test_validate_axis_names_raises_tool_error_when_unknown():
-    with pytest.raises(_ToolError) as exc_info:
-        _validate_for_test("Korea", ["region", "foo"], purpose="filter axis")
+    with pytest.raises(ToolError) as exc_info:
+        _validate_axis_names("Korea", ["region", "foo"], purpose="filter axis")
     msg = str(exc_info.value)
     assert "filter axis" in msg
     assert "foo" in msg
@@ -147,8 +143,8 @@ def test_validate_axis_names_raises_tool_error_when_unknown():
 
 def test_validate_axis_names_singapore_rejects_region():
     # Singapore has no region axis (city-state); region must be rejected
-    with pytest.raises(_ToolError) as exc_info:
-        _validate_for_test("Singapore", ["region"], purpose="filter axis")
+    with pytest.raises(ToolError) as exc_info:
+        _validate_axis_names("Singapore", ["region"], purpose="filter axis")
     assert "region" in str(exc_info.value)
     assert "Singapore" in str(exc_info.value)
 
@@ -176,7 +172,7 @@ def test_sample_personas_empty_filter_result_warns(korea_store):
 
 
 def test_persona_distribution_unknown_group_by_raises_tool_error(korea_store):
-    with pytest.raises(_ToolError) as exc_info:
+    with pytest.raises(ToolError) as exc_info:
         mcp_server.persona_distribution(country="Korea", group_by=["foo"])
     msg = str(exc_info.value)
     assert "group_by axis" in msg
@@ -188,9 +184,6 @@ def test_sample_personas_default_ctx_none_still_works(korea_store):
     # Regression: existing tests pass ctx implicitly as None
     out = mcp_server.sample_personas(country="Korea", n=1)
     assert len(out) == 1
-
-
-import json as _json
 
 
 @pytest.fixture
@@ -216,7 +209,7 @@ def korea_with_catalog(tmp_path, monkeypatch):
 
 
 def test_catalog_resource_lists_built_countries(korea_with_catalog):
-    payload = _json.loads(mcp_server.catalog())
+    payload = json.loads(mcp_server.catalog())
     assert isinstance(payload, list)
     countries = [c["country"] for c in payload]
     assert "Korea" in countries
@@ -227,12 +220,12 @@ def test_catalog_resource_lists_built_countries(korea_with_catalog):
 
 def test_catalog_resource_returns_empty_list_when_no_stores(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
-    payload = _json.loads(mcp_server.catalog())
+    payload = json.loads(mcp_server.catalog())
     assert payload == []
 
 
 def test_country_catalog_resource_returns_axes_and_counts(korea_with_catalog):
-    payload = _json.loads(mcp_server.country_catalog("Korea"))
+    payload = json.loads(mcp_server.country_catalog("Korea"))
     assert payload["country"] == "Korea"
     assert payload["n_personas"] == 110
     assert payload["axes"]["region"]["수도권"] == 80
@@ -253,9 +246,6 @@ def test_search_personas_empty_result_warns(korea_store):
     ctx.warning.assert_called_once()
     warn_msg = ctx.warning.call_args.args[0]
     assert "no matches" in warn_msg.lower()
-
-
-import asyncio
 
 
 def test_sample_personas_n_zero_raises_validation_through_mcp_path(korea_store):

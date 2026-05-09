@@ -16,7 +16,7 @@ def test_all_countries_share_minimum_axes(country):
 @pytest.mark.parametrize("country", COUNTRIES)
 def test_age_gen_label_count_matches_bounds(country):
     m = get_mappings(country)
-    assert len(m.age_gen_keywords) == len(AGE_GEN_BOUNDS)
+    assert len(m.age_gen_labels) == len(AGE_GEN_BOUNDS)
 
 
 @pytest.mark.parametrize("country", COUNTRIES)

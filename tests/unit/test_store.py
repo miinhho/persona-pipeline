@@ -1,3 +1,5 @@
+import json
+
 import polars as pl
 import pytest
 
@@ -167,9 +169,6 @@ def test_distribution_with_empty_filter_result(korea_store):
     df = store.distribution("Korea", group_by=["region"], filter={"region": "지구상에없는지역"})
     assert df.height == 0
     assert "count" in df.columns
-
-
-import json
 
 
 def test_catalog_path_returns_sidecar_alongside_store():

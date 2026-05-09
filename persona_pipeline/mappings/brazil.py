@@ -52,9 +52,5 @@ MAPPINGS = CountryMappings(
     region_map=STATE_TO_REGIAO,
     occupation_source_col="occupation",
     occupation_group_definitions=None,
-    age_gen_keywords={
-        "jovem": ["jovem", "juventude", "20 anos", "30 anos"],
-        "adulto": ["adulto", "meia-idade", "40 anos", "50 anos"],
-        "idoso": ["idoso", "idosa", "velho", "velha", "60 anos", "70 anos"],
-    },
+    age_gen_labels=["jovem", "adulto", "idoso"],
 )

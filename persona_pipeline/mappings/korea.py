@@ -47,9 +47,5 @@ MAPPINGS = CountryMappings(
     region_map=PROVINCE_TO_REGION,
     occupation_source_col="occupation",
     occupation_group_definitions=KSCO_GROUP_DEFINITIONS,
-    age_gen_keywords={
-        "청년": ["청년", "20대", "30대 초반", "젊은", "젊은이"],
-        "중장년": ["중장년", "30대", "40대", "50대", "60대 초반", "장년", "중년"],
-        "노년": ["노년", "60대", "70대", "80대", "90대", "어르신", "노인", "고령"],
-    },
+    age_gen_labels=["청년", "중장년", "노년"],
 )

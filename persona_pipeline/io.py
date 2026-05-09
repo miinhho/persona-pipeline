@@ -16,7 +16,7 @@ from persona_pipeline.mappings import get_mappings
 
 
 @contextmanager
-def atomic_parquet_path(path: Path | str) -> Iterator[Path]:
+def _atomic_parquet_path(path: Path | str) -> Iterator[Path]:
     """Write to a tempfile, atomic-move on success, cleanup on failure."""
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -32,12 +32,12 @@ def atomic_parquet_path(path: Path | str) -> Iterator[Path]:
 
 
 def write_parquet(df: pl.DataFrame, path: Path | str) -> None:
-    with atomic_parquet_path(path) as tmp:
+    with _atomic_parquet_path(path) as tmp:
         df.write_parquet(tmp, compression="zstd", row_group_size=ROW_GROUP_SIZE)
 
 
 def sink_parquet(lf: pl.LazyFrame, path: Path | str) -> None:
-    with atomic_parquet_path(path) as tmp:
+    with _atomic_parquet_path(path) as tmp:
         lf.sink_parquet(tmp, compression="zstd", row_group_size=ROW_GROUP_SIZE)
 
 

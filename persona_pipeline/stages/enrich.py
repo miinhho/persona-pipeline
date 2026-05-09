@@ -18,10 +18,10 @@ from persona_pipeline.mappings import (
 
 
 def _age_gen_expr(mapping: CountryMappings) -> pl.Expr:
-    labels = list(mapping.age_gen_keywords.keys())
+    labels = mapping.age_gen_labels
     if len(labels) != len(AGE_GEN_BOUNDS):
         raise ValueError(
-            f"{mapping.country}: age_gen_keywords needs {len(AGE_GEN_BOUNDS)} labels, got {labels}"
+            f"{mapping.country}: age_gen_labels needs {len(AGE_GEN_BOUNDS)} entries, got {labels}"
         )
     young, middle, old = labels
     (_, hi_y), (_, hi_m), _ = AGE_GEN_BOUNDS

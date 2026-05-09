@@ -68,9 +68,5 @@ MAPPINGS = CountryMappings(
     region_map=STATE_TO_ZONE,
     occupation_source_col="occupation",
     occupation_group_definitions=NCO_GROUP_DEFINITIONS,
-    age_gen_keywords={
-        "young": ["young", "youth", "20s", "early 30s"],
-        "middle_aged": ["middle", "middle-aged", "30s", "40s", "50s"],
-        "elderly": ["elderly", "old", "senior", "60s", "70s", "80s"],
-    },
+    age_gen_labels=["young", "middle_aged", "elderly"],
 )
