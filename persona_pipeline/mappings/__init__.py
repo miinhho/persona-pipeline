@@ -7,13 +7,8 @@ from persona_pipeline.mappings._base import (
     HOBBIES_COL,
     OCCUPATION_GROUP,
     REGION,
-    SEGMENT_ID,
-    SEGMENT_KEY,
-    SEGMENT_SEP,
     SEX,
     UUID,
-    backoff_axes,
-    parse_segment,
 )
 from persona_pipeline.mappings import (
     brazil, france, india, japan, korea, singapore, usa,
@@ -47,12 +42,7 @@ __all__ = [
     "HOBBIES_COL",
     "OCCUPATION_GROUP",
     "REGION",
-    "SEGMENT_ID",
-    "SEGMENT_KEY",
-    "SEGMENT_SEP",
     "SEX",
     "UUID",
-    "backoff_axes",
     "get_mappings",
-    "parse_segment",
 ]
