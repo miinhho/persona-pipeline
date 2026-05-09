@@ -53,10 +53,40 @@ def _validate_country(country: str) -> None:
         raise ToolError(f"unknown country '{country}'. {exc.args[0]}") from exc
     path = store.store_path(country)
     if not path.exists():
+        built = store.list_built_countries()
+        built_hint = f" Currently built: {built}." if built else " No countries built yet."
         raise ToolError(
             f"country store not built: '{country}'. Run `build {country}` first"
-            f" (looked at: {path})."
+            f" (looked at: {path}).{built_hint}"
         )
+
+
+def _validate_axis_values(
+    country: str, filter_dict: dict[str, list[str]], *, sample_limit: int = 8
+) -> None:
+    """Raise `ToolError` if any filter value is absent from the country's catalog.
+
+    Closes the silent-zero failure mode where e.g. `region=["서울"]` (instead of
+    "수도권") returns []. Message lists up to `sample_limit` valid values per axis
+    and points to the catalog resource for the full list.
+    """
+    catalog = store.load_catalog(country)
+    if catalog is None:
+        return  # store exists but no catalog (build sidecar missing); skip silently
+    axes_meta: dict[str, dict[str, int]] = catalog.get("axes", {})
+    for axis, values in filter_dict.items():
+        valid = axes_meta.get(axis)
+        if valid is None:
+            continue  # axis-name validation handled by _validate_axis_names
+        bad = [v for v in values if v not in valid]
+        if bad:
+            sample = list(valid.keys())[:sample_limit]
+            more = len(valid) - sample_limit
+            extra = f" (+{more} more)" if more > 0 else ""
+            raise ToolError(
+                f"unknown {axis} value(s): {bad}. valid {axis} for {country}: "
+                f"{sample}{extra}. See personas://catalog/{country}."
+            )
 
 
 def _validate_axis_names(country: str, names: Iterable[str], *, purpose: str) -> None:
@@ -124,6 +154,7 @@ def sample_personas(
     filt = _axes_filter(region, age_gen, sex, occupation_group)
     if filt:
         _validate_axis_names(country, filt.keys(), purpose="filter axis")
+        _validate_axis_values(country, filt)
     with _observe(ctx, "sample_personas",
                   country=country, n=n, filter=filt, seed=seed):
         result = store.sample(country, filt, n, seed).to_dicts()
@@ -163,6 +194,7 @@ def search_personas(
     filt = _axes_filter(region, age_gen, sex, occupation_group)
     if filt:
         _validate_axis_names(country, filt.keys(), purpose="filter axis")
+        _validate_axis_values(country, filt)
     with _observe(ctx, "search_personas",
                   country=country, query=query, top_k=top_k, filter=filt):
         result = store.search(country, query, top_k, filt).to_dicts()
@@ -199,6 +231,7 @@ def persona_distribution(
     filt = _axes_filter(region, age_gen, sex, occupation_group)
     if filt:
         _validate_axis_names(country, filt.keys(), purpose="filter axis")
+        _validate_axis_values(country, filt)
     with _observe(ctx, "persona_distribution",
                   country=country, group_by=group_by, filter=filt):
         return store.distribution(country, group_by, filt).to_dicts()

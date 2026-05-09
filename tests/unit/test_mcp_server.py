@@ -149,6 +149,51 @@ def test_validate_axis_names_singapore_rejects_region():
     assert "Singapore" in str(exc_info.value)
 
 
+def test_sample_personas_invalid_axis_value_raises_tool_error(korea_store):
+    """Passing region=['서울'] (real provinces, not the region axis label '수도권')
+    must raise ToolError instead of returning [] silently."""
+    store.write_catalog("Korea")  # ensure sidecar is on disk for this fixture
+    with pytest.raises(ToolError) as exc_info:
+        mcp_server.sample_personas(country="Korea", n=1, region=["서울"])
+    msg = str(exc_info.value)
+    assert "region" in msg and "서울" in msg
+    assert "수도권" in msg  # one of the valid values listed
+    assert "personas://catalog/Korea" in msg
+
+
+def test_validate_axis_values_passes_when_all_valid(korea_store):
+    store.write_catalog("Korea")
+    # 수도권 is a real region in the fixture; should not raise
+    out = mcp_server.sample_personas(country="Korea", n=1, region=["수도권"])
+    assert len(out) == 1
+
+
+def test_validate_axis_values_skips_when_no_catalog(korea_store, monkeypatch):
+    """Defensive: if catalog sidecar is missing, fall through silently (don't block
+    the tool because of a missing sidecar — the country store still works)."""
+    monkeypatch.setattr(store, "load_catalog", lambda c: None)
+    # Even with a non-catalogued value, this should not raise (catalog absent)
+    out = mcp_server.sample_personas(country="Korea", n=1, region=["수도권"])
+    assert len(out) == 1
+
+
+def test_unknown_country_lists_built_countries(korea_store, monkeypatch, tmp_path):
+    """country-not-found error includes the list of currently-built countries."""
+    store.write_catalog("Korea")
+    # Point store_path elsewhere so France lookup fails but Korea's catalog stays under tmp_path
+    real_store_path = store.store_path
+    monkeypatch.setattr(
+        store, "store_path",
+        lambda c: real_store_path("Korea") if c == "Korea" else tmp_path / f"{c}.parquet",
+    )
+    with pytest.raises(ToolError) as exc_info:
+        mcp_server.sample_personas(country="France", n=1)
+    msg = str(exc_info.value)
+    assert "not built" in msg
+    assert "Currently built" in msg
+    assert "Korea" in msg
+
+
 def test_sample_personas_with_ctx_logs_two_info_calls(korea_store):
     ctx = MagicMock()
     out = mcp_server.sample_personas(country="Korea", n=2, ctx=ctx)
