@@ -177,3 +177,57 @@ def test_rate_limit_skips_when_no_token_key():
     # No StubAuth → no token_key on request.state
     assert c.get("/x").status_code == 200
     assert c.get("/x").status_code == 200  # second call also passes
+
+
+import json as _json
+
+
+def test_structured_log_emits_json_line_to_stderr(capsys):
+    # Build app with request_id + stub-auth + log middleware so all fields are populated
+    app = Starlette(
+        routes=[Route("/x", _ok)],
+        middleware=[
+            Middleware(remote._RequestIdMiddleware),
+            Middleware(_StubAuth, key="alpha-key"),
+            Middleware(remote._StructuredLogMiddleware),
+        ],
+    )
+    # Patch _token_id onto request.state so the log can pick it up. The stub auth
+    # only sets token_key, but the log middleware reads token_id. In production,
+    # _AuthMiddleware sets both. Use a richer stub here.
+    c = TestClient(app)
+    r = c.get("/x")
+    assert r.status_code == 200
+
+    captured = capsys.readouterr()
+    # Stderr should contain at least one JSON line with the standard fields
+    lines = [ln for ln in captured.err.splitlines() if ln.strip().startswith("{")]
+    assert lines, f"no JSON line emitted to stderr; got: {captured.err!r}"
+    record = _json.loads(lines[-1])
+    assert record["status"] == 200
+    assert record["method"] == "GET"
+    assert record["path"] == "/x"
+    assert "elapsed_ms" in record and isinstance(record["elapsed_ms"], int)
+    assert "ts" in record and record["ts"].endswith("Z")
+    assert record["request_id"]  # non-empty
+
+
+def test_structured_log_includes_token_id_when_attached(capsys):
+    class _StubBoth(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            request.state.token_key = "kfull"
+            request.state.token_id = "kfull"[:6] + "…"
+            return await call_next(request)
+
+    app = Starlette(
+        routes=[Route("/x", _ok)],
+        middleware=[
+            Middleware(remote._RequestIdMiddleware),
+            Middleware(_StubBoth),
+            Middleware(remote._StructuredLogMiddleware),
+        ],
+    )
+    TestClient(app).get("/x")
+    err = capsys.readouterr().err
+    record = _json.loads([ln for ln in err.splitlines() if ln.strip().startswith("{")][-1])
+    assert record["token_id"] == "kfull…"

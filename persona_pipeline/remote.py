@@ -5,7 +5,9 @@ This module is *only* used by the `serve-http` CLI command. The stdio MCP server
 """
 from __future__ import annotations
 
+import json
 import os
+import sys
 import time
 import uuid
 from collections import defaultdict, deque
@@ -115,3 +117,28 @@ class _RateLimitMiddleware(BaseHTTPMiddleware):
             )
         bucket.append(now)
         return await call_next(request)
+
+
+class _StructuredLogMiddleware(BaseHTTPMiddleware):
+    """Emit one JSON line per request to stderr after the response is produced.
+
+    Fields: ts (UTC ISO Z), level, request_id, token_id (or null), method, path,
+    status, elapsed_ms. Operators wire stderr into log shippers (Loki/ELK).
+    """
+
+    async def dispatch(self, request, call_next):
+        t0 = time.monotonic()
+        response = await call_next(request)
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        record = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "level": "info",
+            "request_id": getattr(request.state, "request_id", None),
+            "token_id": getattr(request.state, "token_id", None),
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "elapsed_ms": elapsed_ms,
+        }
+        print(json.dumps(record, ensure_ascii=False), file=sys.stderr, flush=True)
+        return response
