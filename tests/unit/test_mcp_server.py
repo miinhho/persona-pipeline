@@ -123,3 +123,31 @@ def test_observe_does_not_log_error_on_tool_error():
         with _observe_for_test(ctx, "myop"):
             raise _ToolError("user-facing")
     ctx.error.assert_not_called()
+
+
+from persona_pipeline.mcp_server import _validate_axis_names as _validate_for_test  # noqa: E402
+
+
+def test_validate_axis_names_passes_when_all_valid():
+    # Korea has 4 axes; no exception expected
+    _validate_for_test("Korea", ["region", "sex"], purpose="filter axis")
+
+
+def test_validate_axis_names_raises_tool_error_when_unknown():
+    with pytest.raises(_ToolError) as exc_info:
+        _validate_for_test("Korea", ["region", "foo"], purpose="filter axis")
+    msg = str(exc_info.value)
+    assert "filter axis" in msg
+    assert "foo" in msg
+    assert "personas://catalog/Korea" in msg
+    # Lists the valid axes for the country
+    for axis in ["region", "age_gen", "sex", "occupation_group"]:
+        assert axis in msg
+
+
+def test_validate_axis_names_singapore_rejects_region():
+    # Singapore has no region axis (city-state); region must be rejected
+    with pytest.raises(_ToolError) as exc_info:
+        _validate_for_test("Singapore", ["region"], purpose="filter axis")
+    assert "region" in str(exc_info.value)
+    assert "Singapore" in str(exc_info.value)

@@ -4,6 +4,7 @@ Run with: `python -m persona_pipeline.mcp_server` (stdio transport).
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from contextlib import contextmanager
 from time import perf_counter
 
@@ -52,6 +53,22 @@ def _validate_country(country: str) -> None:
         raise ToolError(
             f"country store not built: '{country}'. Run `build {country}` first"
             f" (looked at: {path})."
+        )
+
+
+def _validate_axis_names(country: str, names: Iterable[str], *, purpose: str) -> None:
+    """Raise `ToolError` if any name is not in `mapping.axes` for `country`.
+
+    `purpose` is a short noun phrase used in the error message ("filter axis",
+    "group_by axis"). The message lists the valid axis set and the catalog URI
+    so the LLM client can self-correct on the next call.
+    """
+    valid = list(get_mappings(country).axes)
+    bad = [n for n in names if n not in valid]
+    if bad:
+        raise ToolError(
+            f"unknown {purpose}: {bad}. valid for {country}: {valid}. "
+            f"See personas://catalog/{country}."
         )
 
 
