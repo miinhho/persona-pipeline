@@ -167,9 +167,10 @@ def build_app(mcp) -> Starlette:
 
     Layers (outer-to-inner):
       1. _RequestIdMiddleware — ensures every request carries an id
-      2. _AuthMiddleware       — Bearer key gate (exempts /health)
-      3. _RateLimitMiddleware  — per-token rolling-window
-      4. _StructuredLogMiddleware — emits one JSON line per request to stderr
+      2. _StructuredLogMiddleware — emits one JSON line per request to stderr
+         (placed here so it sees 401/429 short-circuit responses from auth/rate)
+      3. _AuthMiddleware       — Bearer key gate (exempts /health)
+      4. _RateLimitMiddleware  — per-token rolling-window
 
     Routes:
       - GET /health      — unauthenticated liveness check
@@ -182,9 +183,9 @@ def build_app(mcp) -> Starlette:
 
     middleware = [
         Middleware(_RequestIdMiddleware),
+        Middleware(_StructuredLogMiddleware),
         Middleware(_AuthMiddleware, api_keys=api_keys, exempt_paths=("/health",)),
         Middleware(_RateLimitMiddleware, per_minute=rate),
-        Middleware(_StructuredLogMiddleware),
     ]
     routes = [
         Route("/health", _health, methods=["GET"]),

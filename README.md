@@ -122,8 +122,9 @@ persona_pipeline/
 │   └── classify_occupation.py  Anthropic Batches occupation classifier
 ├── store.py                load / sample / distribution / get / search helpers
 ├── mcp_server.py           FastMCP server: 4 tools + 2 catalog resources
+├── remote.py               streamable-http app: auth + rate limit + JSON logs + /health
 ├── io.py                   atomic parquet write + HF download
-└── cli/                    Typer commands
+└── cli/                    Typer commands (download, build, serve, serve-http, …)
 
 tests/                      pytest
 docs/superpowers/           specs / plans

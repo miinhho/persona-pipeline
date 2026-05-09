@@ -53,6 +53,13 @@ def test_load_api_keys_parses_comma_separated(monkeypatch):
     assert remote._load_api_keys() == {"alpha", "beta", "gamma"}
 
 
+def test_load_api_keys_raises_when_only_separators(monkeypatch):
+    """Defensive: ',  ,  ' is non-empty after .strip() but yields empty key set."""
+    monkeypatch.setenv("PERSONA_STORE_API_KEYS", "  ,  ,  ")
+    with pytest.raises(RuntimeError, match="PERSONA_STORE_API_KEYS"):
+        remote._load_api_keys()
+
+
 def _auth_client(api_keys: set[str], exempt=("/health",)) -> TestClient:
     return _client(Middleware(remote._AuthMiddleware, api_keys=api_keys, exempt_paths=exempt))
 
@@ -92,12 +99,6 @@ def test_auth_exempts_health_path():
     c = TestClient(app)
     assert c.get("/health").status_code == 200  # no auth needed
     assert c.get("/x").status_code == 401       # /x still requires auth
-
-
-async def _ok_with_token(request):
-    # Simulate auth having attached a token_key (since the rate limit middleware
-    # reads request.state.token_key set by _AuthMiddleware in production).
-    return PlainTextResponse("ok")
 
 
 class _StubAuth(BaseHTTPMiddleware):
@@ -140,31 +141,29 @@ def test_rate_limit_blocks_over_limit_with_429_and_retry_after():
 
 
 def test_rate_limit_isolates_per_token():
-    # Each TestClient builds a fresh app instance — so we need both keys in one app
-    # to test isolation. Build a custom app:
+    """Two tokens against the SAME middleware instance must use separate buckets."""
+
+    class _SwitchingAuth(BaseHTTPMiddleware):
+        """Pick token_key from `?token=` query param so we can hit one middleware
+        with two distinct keys and verify per-key bucketing."""
+        async def dispatch(self, request, call_next):
+            request.state.token_key = request.query_params.get("token", "default")
+            return await call_next(request)
+
     app = Starlette(
         routes=[Route("/x", _ok)],
         middleware=[
-            Middleware(_StubAuth, key="kA"),
+            Middleware(_SwitchingAuth),
             Middleware(remote._RateLimitMiddleware, per_minute=1),
         ],
     )
-    c1 = TestClient(app)
-    # First call for kA: ok. Second: 429.
-    assert c1.get("/x").status_code == 200
-    assert c1.get("/x").status_code == 429
-
-    # Build separate app for a different key — bucket is per-token but per-app instance.
-    # Verify per-token isolation by switching the stub to kB on the same per-minute=1 setting:
-    app2 = Starlette(
-        routes=[Route("/x", _ok)],
-        middleware=[
-            Middleware(_StubAuth, key="kB"),
-            Middleware(remote._RateLimitMiddleware, per_minute=1),
-        ],
-    )
-    c2 = TestClient(app2)
-    assert c2.get("/x").status_code == 200  # different key, different bucket
+    c = TestClient(app)
+    # Token A: 1 allowed, 2nd blocked
+    assert c.get("/x?token=kA").status_code == 200
+    assert c.get("/x?token=kA").status_code == 429
+    # Token B against the same middleware instance: still allowed (own bucket)
+    assert c.get("/x?token=kB").status_code == 200
+    assert c.get("/x?token=kB").status_code == 429
 
 
 def test_rate_limit_skips_when_no_token_key():
@@ -307,3 +306,38 @@ def test_build_app_health_returns_empty_stores_when_no_data_dir(tmp_path, monkey
     r = TestClient(app).get("/health")
     assert r.status_code == 200
     assert r.json()["stores"] == []
+
+
+def test_structured_log_captures_auth_rejection(capsys, monkeypatch):
+    """401 from auth must still produce a JSON log line (abuse detection)."""
+    monkeypatch.setenv("PERSONA_STORE_API_KEYS", "k1")
+    app = remote.build_app(_stub_mcp())
+    c = TestClient(app)
+    # No Authorization header → 401
+    r = c.post("/mcp", json={})
+    assert r.status_code == 401
+    err = capsys.readouterr().err
+    json_lines = [ln for ln in err.splitlines() if ln.strip().startswith("{")]
+    assert json_lines, f"no log line for 401; got: {err!r}"
+    record = _json.loads(json_lines[-1])
+    assert record["status"] == 401
+    assert record["path"] == "/mcp"
+    assert record["request_id"]
+
+
+def test_structured_log_captures_rate_limit_rejection(capsys, monkeypatch):
+    """429 from rate limit must still produce a JSON log line."""
+    monkeypatch.setenv("PERSONA_STORE_API_KEYS", "k1")
+    monkeypatch.setenv("PERSONA_STORE_RATE_LIMIT", "1")
+    app = remote.build_app(_stub_mcp())
+    c = TestClient(app)
+    # First request: ok
+    r1 = c.post("/mcp", json={}, headers={"authorization": "Bearer k1"})
+    # Second: rate limited
+    r2 = c.post("/mcp", json={}, headers={"authorization": "Bearer k1"})
+    assert r2.status_code == 429
+    err = capsys.readouterr().err
+    json_lines = [ln for ln in err.splitlines() if ln.strip().startswith("{")]
+    # Last line should be the 429 (the rejection)
+    assert any(_json.loads(ln)["status"] == 429 for ln in json_lines), \
+        f"no 429 log line; got: {err!r}"
