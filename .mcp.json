@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "persona-store": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "-m",
+        "persona_pipeline.mcp_server"
+      ],
+      "env": {}
+    }
+  }
+}

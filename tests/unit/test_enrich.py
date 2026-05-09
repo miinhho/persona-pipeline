@@ -1,3 +1,4 @@
+import pytest
 import polars as pl
 
 from persona_pipeline.mappings import get_mappings
@@ -65,3 +66,42 @@ def test_enrich_sorted_by_axes():
     df = enrich(_korea_synthetic_raw(), KOREA, occupation_lookup=_lookup()).collect()
     sorted_df = df.sort(KOREA.axes)
     assert df["uuid"].to_list() == sorted_df["uuid"].to_list()
+
+
+def test_enrich_raises_when_lookup_required_but_missing():
+    with pytest.raises(ValueError, match="occupation_lookup required"):
+        enrich(_korea_synthetic_raw(), KOREA, occupation_lookup=None).collect()
+
+
+def test_enrich_native_category_country_passes_through_occupation():
+    sg = get_mappings("Singapore")
+    # Singapore: no region axis, occupation_group_definitions=None (native categories),
+    # sex_map=None (no remapping), persona_columns has 6 text fields.
+    sg_persona_cols = list(sg.persona_columns.keys())
+    rows = [
+        {
+            "uuid": "sg-1",
+            "age": 35,
+            "sex": "Male",
+            sg.occupation_source_col: "Professional",
+            **{c: f"{c}-text" for c in sg_persona_cols},
+        },
+        {
+            "uuid": "sg-2",
+            "age": 70,
+            "sex": "Female",
+            sg.occupation_source_col: "Retired",
+            **{c: f"{c}-text" for c in sg_persona_cols},
+        },
+    ]
+    lf = pl.LazyFrame(rows)
+    df = enrich(lf, sg, occupation_lookup=None).collect()
+
+    assert df["country"].unique().to_list() == ["Singapore"]
+    assert "occupation_group" in df.columns
+    # Native-category: occupation_group should equal occupation source values
+    uuid_to_occ = {r["uuid"]: r["occupation_group"] for r in df.iter_rows(named=True)}
+    assert uuid_to_occ["sg-1"] == "Professional"
+    assert uuid_to_occ["sg-2"] == "Retired"
+    # Singapore has no region axis
+    assert "region" not in df.columns

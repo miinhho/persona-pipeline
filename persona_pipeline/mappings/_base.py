@@ -24,8 +24,8 @@ class CountryMappings:
     locale: str
     hf_split: str
 
-    # Order of axes that compose segment_id. Some countries differ
-    # (Singapore is a city-state, no region axis -> 3 axes).
+    # Order of axes used for store sort + filter pushdown. Some countries
+    # differ (Singapore is a city-state, no region axis -> 3 axes).
     axes: list[str]
 
     persona_columns: dict[str, str]

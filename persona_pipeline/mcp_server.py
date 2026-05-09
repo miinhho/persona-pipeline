@@ -5,10 +5,26 @@ Run with: `python -m persona_pipeline.mcp_server` (stdio transport).
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 
 from persona_pipeline import store
+from persona_pipeline.mappings import get_mappings
 
 mcp = FastMCP("persona-store")
+
+
+def _validate_country(country: str) -> None:
+    """Raise ToolError with a clean message when country is unknown or store not built."""
+    try:
+        get_mappings(country)
+    except KeyError as exc:
+        raise ToolError(f"unknown country '{country}'. {exc.args[0]}") from exc
+    path = store.store_path(country)
+    if not path.exists():
+        raise ToolError(
+            f"country store not built: '{country}'. Run `build {country}` first"
+            f" (looked at: {path})."
+        )
 
 
 def _axes_filter(
@@ -41,6 +57,7 @@ def sample_personas(
     system-prompt material when role-playing a member of the segment.
     Sampling is deterministic for fixed (filter, n, seed).
     """
+    _validate_country(country)
     return store.sample(
         country, _axes_filter(region, age_gen, sex, occupation_group), n, seed,
     ).to_dicts()
@@ -57,6 +74,7 @@ def search_personas(
     occupation_group: list[str] | None = None,
 ) -> list[dict]:
     """Substring search across persona text fields, optionally constrained by axes."""
+    _validate_country(country)
     return store.search(
         country, query, top_k,
         _axes_filter(region, age_gen, sex, occupation_group),
@@ -73,6 +91,7 @@ def persona_distribution(
     occupation_group: list[str] | None = None,
 ) -> list[dict]:
     """Group filtered rows by `group_by` columns and return counts (descending)."""
+    _validate_country(country)
     return store.distribution(
         country, group_by,
         _axes_filter(region, age_gen, sex, occupation_group),
@@ -82,6 +101,7 @@ def persona_distribution(
 @mcp.tool()
 def get_persona(country: str, uuid: str) -> dict | None:
     """Look up one persona by uuid. Returns None if not found."""
+    _validate_country(country)
     return store.get(country, uuid)
 
 

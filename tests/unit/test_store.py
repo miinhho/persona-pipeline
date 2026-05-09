@@ -156,3 +156,14 @@ def test_search_with_filter(korea_search_store):
 def test_search_no_match_returns_empty(korea_search_store):
     df = store.search("Korea", "지구상에없는단어", top_k=10)
     assert df.height == 0
+
+
+def test_sample_raises_when_filter_column_unknown(korea_store):
+    with pytest.raises(KeyError, match="not in store schema"):
+        store.sample("Korea", {"nonexistent_col": "x"}, n=1)
+
+
+def test_distribution_with_empty_filter_result(korea_store):
+    df = store.distribution("Korea", group_by=["region"], filter={"region": "지구상에없는지역"})
+    assert df.height == 0
+    assert "count" in df.columns

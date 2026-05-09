@@ -1,7 +1,7 @@
 [project]
 name = "persona-pipeline"
 version = "0.1.0"
-description = "Nemotron-Personas multi-country archetype pipeline (rule-based, no LLM/embedding)"
+description = "Multi-country MCP server exposing raw Nemotron-Personas to LLM clients (sample / search / distribution / get)."
 requires-python = ">=3.11"
 dependencies = [
     "polars>=1.0",

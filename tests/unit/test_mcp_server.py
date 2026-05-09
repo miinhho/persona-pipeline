@@ -1,5 +1,6 @@
 import polars as pl
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
 from persona_pipeline import mcp_server, store
 
@@ -68,3 +69,15 @@ def test_get_persona_returns_dict(korea_store):
 
 def test_get_persona_returns_none_when_missing(korea_store):
     assert mcp_server.get_persona(country="Korea", uuid="nope") is None
+
+
+def test_unknown_country_raises_tool_error(korea_store, monkeypatch, tmp_path):
+    # Unknown country name (not in mappings registry)
+    with pytest.raises(ToolError, match="unknown country"):
+        mcp_server.sample_personas(country="Atlantis", n=1)
+
+    # Valid country whose store parquet has not been built
+    # Monkeypatch store_path to point to a non-existent file for France
+    monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
+    with pytest.raises(ToolError, match="not built"):
+        mcp_server.sample_personas(country="France", n=1)
