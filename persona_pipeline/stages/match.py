@@ -1,4 +1,6 @@
 """Rule-based natural-language query → archetype matching, per country."""
+import difflib
+import re
 from functools import reduce
 from operator import add
 
@@ -8,17 +10,47 @@ from persona_pipeline.mappings import (
     REGION, AGE_GEN, SEX, OCCUPATION_GROUP, CountryMappings,
 )
 
+FUZZY_CUTOFF = 0.75
+_TOKEN_RE = re.compile(r"\w+", re.UNICODE)
+
 
 def _extract_axis(query: str, keyword_map: dict[str, list[str]]) -> str | None:
+    if not keyword_map:
+        return None
     q_lower = query.lower()
-    best_label = None
+
+    best_label: str | None = None
     best_len = 0
     for label, kws in keyword_map.items():
         for kw in kws:
-            if kw.lower() in q_lower and len(kw) > best_len:
+            kw_lower = kw.lower()
+            if kw_lower and kw_lower in q_lower and len(kw_lower) > best_len:
                 best_label = label
-                best_len = len(kw)
-    return best_label
+                best_len = len(kw_lower)
+    if best_label is not None:
+        return best_label
+
+    # Fuzzy fallback: per query token, find the closest keyword across all labels.
+    # Picks the highest-scoring (token, keyword) pair to avoid an early-token false positive.
+    flat = [(label, kw.lower()) for label, kws in keyword_map.items() for kw in kws if kw]
+    if not flat:
+        return None
+    candidates = [kw for _, kw in flat]
+    tokens = _TOKEN_RE.findall(q_lower)
+
+    best_ratio = 0.0
+    best_fuzzy: str | None = None
+    for token in tokens:
+        if len(token) < 2:
+            continue
+        match = difflib.get_close_matches(token, candidates, n=1, cutoff=FUZZY_CUTOFF)
+        if not match:
+            continue
+        ratio = difflib.SequenceMatcher(None, token, match[0]).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_fuzzy = next(label for label, kw in flat if kw == match[0])
+    return best_fuzzy
 
 
 _AXIS_TO_FIELD = {

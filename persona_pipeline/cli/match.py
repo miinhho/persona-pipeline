@@ -6,6 +6,7 @@ from persona_pipeline._config import DEFAULT_TOP_K
 from persona_pipeline.cli._paths import archetypes_path
 from persona_pipeline.cli.app import app
 from persona_pipeline.mappings import get_mappings
+from persona_pipeline.stages.archetype import render_archetype_card
 from persona_pipeline.stages.match import match_archetypes
 
 
@@ -21,4 +22,4 @@ def match(country: str, query: str = typer.Argument(...), top_k: int = DEFAULT_T
         score = r.get("_score", "?")
         typer.echo(f"\n=== score={score} {r['segment_id']} "
                    f"size={r['size']:,} share={r['share_pct']:.2f}% ===")
-        typer.echo(r["archetype_text"])
+        typer.echo(render_archetype_card(r))

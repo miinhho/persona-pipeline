@@ -1,7 +1,7 @@
 import polars as pl
 
 from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.archetype import synthesize_archetypes
+from persona_pipeline.stages.archetype import render_archetype_card, synthesize_archetypes
 from persona_pipeline.stages.enrich import enrich
 from persona_pipeline.stages.match import match_archetypes
 from persona_pipeline.stages.partition import partition
@@ -50,9 +50,10 @@ def _run_workflow(tmp_path, mapping, raw_rows, min_size):
 def test_workflow_produces_archetype_with_required_fields(tmp_path):
     cards = _run_workflow(tmp_path, KOREA, _korea_synthetic_raw(), min_size=1)
     expected = {"country", "segment_id", "size", "share_pct", "mean_age",
-                "top_occupation", "top_region", "top_hobbies", "archetype_text",
+                "top_occupation", "top_region", "top_hobbies", "samples",
                 *KOREA.axes}
     assert expected.issubset(set(cards.columns))
+    assert "archetype_text" not in cards.columns
 
 
 def test_workflow_share_pct_sums_to_100_and_size_covers_all_rows(tmp_path):
@@ -62,9 +63,12 @@ def test_workflow_share_pct_sums_to_100_and_size_covers_all_rows(tmp_path):
     assert cards["size"].sum() == len(raw_rows)
 
 
-def test_workflow_archetype_text_includes_persona_sections(tmp_path):
+def test_workflow_samples_capped_per_segment_and_render_includes_persona_sections(tmp_path):
     cards = _run_workflow(tmp_path, KOREA, _korea_synthetic_raw(), min_size=1)
-    text = cards["archetype_text"][0]
+    samples_lists = cards["samples"].to_list()
+    assert all(len(s) <= 5 for s in samples_lists)
+    assert any(len(s) >= 1 for s in samples_lists)
+    text = render_archetype_card(cards.row(0, named=True))
     assert "[요약]" in text
     assert "[직업]" in text
 

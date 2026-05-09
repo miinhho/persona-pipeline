@@ -1,4 +1,4 @@
-"""segment_key → segment_id with backoff merge (PyArrow Dataset 2-pass)."""
+"""segment_key → segment_id with per-segment cascading backoff (PyArrow Dataset 2-pass)."""
 from collections import Counter
 from pathlib import Path
 
@@ -21,20 +21,37 @@ def _join_axes_array(batch: pa.RecordBatch, axes: list[str]) -> pa.Array:
     return pc.binary_join_element_wise(*cols, SEGMENT_SEP)  # type: ignore[attr-defined]
 
 
-def _decide_segment_id(
-    sk: str,
+def _decide_segment_ids(
+    l0_count: Counter,
     seg_to_b1: dict[str, str],
     seg_to_b2: dict[str, str],
-    b1_min_l0: dict[str, int],
-    l1_count: Counter,
     min_size: int,
-) -> str:
-    b1 = seg_to_b1[sk]
-    if b1_min_l0[b1] >= min_size:
-        return sk
-    if l1_count[b1] >= min_size:
-        return b1
-    return seg_to_b2[sk]
+) -> dict[str, str]:
+    """Per-segment cascade: large L0 stays at L0; only small L0 backs off, and the b1 it
+    falls into is sized from the residual (other small L0s sharing that b1), not from rows
+    of large L0s that already resolved at L0."""
+    seg_to_id: dict[str, str] = {}
+
+    for sk, count in l0_count.items():
+        if count >= min_size:
+            seg_to_id[sk] = sk
+
+    b1_residual: Counter = Counter()
+    for sk, count in l0_count.items():
+        if sk not in seg_to_id:
+            b1_residual[seg_to_b1[sk]] += count
+
+    for sk in l0_count:
+        if sk in seg_to_id:
+            continue
+        if b1_residual[seg_to_b1[sk]] >= min_size:
+            seg_to_id[sk] = seg_to_b1[sk]
+
+    for sk in l0_count:
+        if sk not in seg_to_id:
+            seg_to_id[sk] = seg_to_b2[sk]
+
+    return seg_to_id
 
 
 def partition(
@@ -53,8 +70,6 @@ def partition(
     dataset = ds.dataset(str(input_path), format="parquet")
 
     l0_count: Counter = Counter()
-    l1_count: Counter = Counter()
-    l2_count: Counter = Counter()
     seg_to_b1: dict[str, str] = {}
     seg_to_b2: dict[str, str] = {}
 
@@ -63,24 +78,12 @@ def partition(
         b1s = _join_axes_array(batch, b1_axes).to_pylist()
         b2s = _join_axes_array(batch, b2_axes).to_pylist()
         l0_count.update(sks)
-        l1_count.update(b1s)
-        l2_count.update(b2s)
         for sk, b1, b2 in zip(sks, b1s, b2s):
             if sk not in seg_to_b1:
                 seg_to_b1[sk] = b1
                 seg_to_b2[sk] = b2
 
-    # backoff is triggered for a b1 bucket if any of its L0 segments is below min_size.
-    b1_min_l0: dict[str, int] = {}
-    for sk, count in l0_count.items():
-        b1 = seg_to_b1[sk]
-        if b1 not in b1_min_l0 or count < b1_min_l0[b1]:
-            b1_min_l0[b1] = count
-
-    seg_to_id: dict[str, str] = {
-        sk: _decide_segment_id(sk, seg_to_b1, seg_to_b2, b1_min_l0, l1_count, min_size)
-        for sk in l0_count
-    }
+    seg_to_id = _decide_segment_ids(l0_count, seg_to_b1, seg_to_b2, min_size)
 
     with atomic_parquet_path(output_path) as tmp:
         writer: pq.ParquetWriter | None = None

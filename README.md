@@ -18,9 +18,9 @@ make build-all                       # all 7 countries sequentially
 ```
 raw (HF dataset)
   ↓ enrich     select demographic columns + derive axes (region/age_gen/sex/occupation_group) + segment_key
-  ↓ partition  segment_id + backoff merge (L0 → L1 → L2)
-  ↓ archetype  per-segment stats + 5 medoid persona samples
-  ↓ match      NL query → axis match → top-K archetypes
+  ↓ partition  segment_id + per-segment cascading backoff (L0 → L1 → L2)
+  ↓ archetype  per-segment stats + 5 uniformly-random persona samples
+  ↓ match      NL query → axis match (substring + fuzzy fallback) → top-K archetypes
 ```
 
 ## Country mappings

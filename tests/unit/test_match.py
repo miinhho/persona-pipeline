@@ -56,3 +56,14 @@ def test_no_keyword_match_falls_back_to_size_descending():
     cards = _korea_archetypes()
     results = match_archetypes("xyz abc", cards, get_mappings("Korea"), top_k=2)
     assert results[0]["segment_id"] == "영남권|노년|여자|단순노무"
+
+
+def test_fuzzy_fallback_matches_typo_when_substring_misses():
+    # substring으로는 안 잡히는 오타 "enginer"가 fuzzy로 "engineer"에 매핑되는지.
+    from persona_pipeline.stages.match import _extract_axis
+    keyword_map = {"Engineering": ["engineer", "architect"]}
+    assert _extract_axis("we need an enginer", keyword_map) == "Engineering"
+    # 정확 substring이 있으면 fuzzy 단계까지 가지 않고 그대로 매칭.
+    assert _extract_axis("an architect", keyword_map) == "Engineering"
+    # 너무 다르면 None.
+    assert _extract_axis("nothing related here", keyword_map) is None
