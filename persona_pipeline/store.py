@@ -7,6 +7,7 @@ predicate-pushed down to row-group level.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,11 +15,17 @@ import polars as pl
 
 from persona_pipeline.mappings import get_mappings
 
-DATA = Path("data")
+def _store_dir() -> Path:
+    """Resolve the per-country store directory.
+
+    Defaults to `data/store` (local dev). Overridable via the
+    `PERSONA_STORE_DATA_DIR` env var so containers can point at a mounted volume.
+    """
+    return Path(os.environ.get("PERSONA_STORE_DATA_DIR", "data/store"))
 
 
 def store_path(country: str) -> Path:
-    return DATA / "store" / f"{country}.parquet"
+    return _store_dir() / f"{country}.parquet"
 
 
 def load(country: str) -> pl.LazyFrame:

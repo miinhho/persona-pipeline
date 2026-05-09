@@ -205,3 +205,15 @@ def test_load_catalog_round_trips(korea_store):
 def test_load_catalog_returns_none_when_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
     assert store.load_catalog("Atlantis") is None
+
+
+def test_store_path_respects_env_var(tmp_path, monkeypatch):
+    monkeypatch.setenv("PERSONA_STORE_DATA_DIR", str(tmp_path))
+    assert store.store_path("Korea") == tmp_path / "Korea.parquet"
+    assert store.catalog_path("Korea") == tmp_path / "Korea.catalog.json"
+
+
+def test_store_path_default_when_env_unset(monkeypatch):
+    monkeypatch.delenv("PERSONA_STORE_DATA_DIR", raising=False)
+    from pathlib import Path
+    assert store.store_path("Korea") == Path("data/store") / "Korea.parquet"
