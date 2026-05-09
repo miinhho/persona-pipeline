@@ -38,7 +38,7 @@ def write_parquet(df: pl.DataFrame, path: Path | str) -> None:
 
 def sink_parquet(lf: pl.LazyFrame, path: Path | str) -> None:
     with atomic_parquet_path(path) as tmp:
-        lf.sink_parquet(tmp, compression="zstd")
+        lf.sink_parquet(tmp, compression="zstd", row_group_size=ROW_GROUP_SIZE)
 
 
 def download_raw(country: str, out_path: Path | str) -> Path:
