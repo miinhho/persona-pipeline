@@ -4,7 +4,7 @@ from __future__ import annotations
 import polars as pl
 import typer
 
-from persona_pipeline import io as io_mod
+from persona_pipeline import io as io_mod, store
 from persona_pipeline.cli._paths import occupation_lookup_path, raw_path
 from persona_pipeline.store import store_path
 from persona_pipeline.cli.app import app
@@ -14,7 +14,7 @@ from persona_pipeline.stages.enrich import enrich
 
 @app.command()
 def build(country: str) -> None:
-    """Enrich raw personas with axes and write the country store.
+    """Enrich raw personas with axes and write the country store + catalog sidecar.
 
     Prerequisites:
       - `download {country}` has run (raw parquet exists)
@@ -38,3 +38,6 @@ def build(country: str) -> None:
     io_mod.sink_parquet(enrich(raw, mapping, occupation_lookup=lookup), out)
     n_rows = pl.scan_parquet(out).select(pl.len()).collect().item()
     typer.echo(f"build[{country}] → {out} ({n_rows:,} rows)")
+
+    catalog_out = store.write_catalog(country)
+    typer.echo(f"catalog[{country}] → {catalog_out}")
