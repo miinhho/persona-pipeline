@@ -1,9 +1,9 @@
 import typer
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(help="Persona pipeline: build the per-country store and serve it over MCP.")
 
-# Import side-effect: each module registers its @app.command()s.
-from persona_pipeline.cli import stages, archetype, match, simulate  # noqa: F401, E402
-
-if __name__ == "__main__":
-    app()
+# Register commands (each module attaches via @app.command())
+from persona_pipeline.cli import download  # noqa: F401, E402
+from persona_pipeline.cli import classify_occupation  # noqa: F401, E402
+from persona_pipeline.cli import build  # noqa: F401, E402
+from persona_pipeline.cli import serve  # noqa: F401, E402
