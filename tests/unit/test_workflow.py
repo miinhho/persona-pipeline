@@ -42,7 +42,15 @@ def _run_workflow(tmp_path, mapping, raw_rows, min_size):
     enriched = tmp_path / "enriched.parquet"
     partitioned = tmp_path / "partitioned.parquet"
     pl.DataFrame(raw_rows).write_parquet(raw)
-    enrich(pl.scan_parquet(raw), mapping).sink_parquet(enriched)
+
+    lookup = None
+    if mapping.occupation_group_definitions is not None:
+        # Synthetic occupation → group mapping for tests; classifier quality not exercised here.
+        first = next(iter(mapping.occupation_group_definitions))
+        occs = sorted({r["occupation"] for r in raw_rows if r.get("occupation")})
+        lookup = pl.LazyFrame({"occupation": occs, "occupation_group": [first] * len(occs)})
+
+    enrich(pl.scan_parquet(raw), mapping, occupation_lookup=lookup).sink_parquet(enriched)
     partition(enriched, partitioned, mapping, min_size=min_size)
     return synthesize_archetypes(partitioned, raw, mapping)
 

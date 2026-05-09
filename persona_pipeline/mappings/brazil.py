@@ -51,7 +51,7 @@ MAPPINGS = CountryMappings(
     region_source_col="state",
     region_map=STATE_TO_REGIAO,
     occupation_source_col="occupation",
-    occupation_groups=None,
+    occupation_group_definitions=None,
     region_keywords={
         "Norte": ["norte", "amazonas", "pará", "acre"],
         "Nordeste": ["nordeste", "bahia", "ceará", "pernambuco", "salvador", "recife"],

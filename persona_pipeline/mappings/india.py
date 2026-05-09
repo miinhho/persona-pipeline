@@ -32,38 +32,22 @@ STATE_TO_ZONE: dict[str, str] = {
 }
 
 
-# NCO-2015 / ISCO-08 compatible 10 major groups. Substring-matched against free-text occupation.
-NCO_GROUPS: dict[str, list[str]] = {
-    "Managers": ["manager", "director", "executive", "official", "head of",
-                 "chief", "supervisor"],
-    "Professionals": ["engineer", "doctor", "physician", "scientist", "researcher",
-                      "teacher", "professor", "lawyer", "advocate", "accountant",
-                      "architect", "developer", "programmer", "software",
-                      "designer", "consultant"],
-    "Technicians and Associate Professionals": ["technician", "associate professional",
-                                                 "operator computer", "draftsman",
-                                                 "paramedic", "nurse", "pharmacist"],
-    "Clerical Support Workers": ["clerk", "secretary", "data entry", "receptionist",
-                                  "typist", "office assistant"],
-    "Service and Sales Workers": ["sales", "cashier", "shopkeeper", "vendor",
-                                   "waiter", "cook", "chef", "barber", "hairdresser",
-                                   "police", "security", "firefighter"],
-    "Skilled Agricultural Workers": ["farmer", "agricultural", "horticulture",
-                                      "fisherman", "shepherd", "plantation"],
-    "Craft and Related Trades Workers": ["carpenter", "mason", "tailor", "weaver",
-                                          "blacksmith", "goldsmith", "potter",
-                                          "cobbler", "electrician", "plumber",
-                                          "welder", "mechanic"],
-    "Plant and Machine Operators and Assemblers": ["operator", "machine operator",
-                                                    "driver", "conductor", "pilot",
-                                                    "assembler", "machinist"],
-    "Elementary Occupations": ["labourer", "laborer", "domestic", "cleaner",
-                                "sweeper", "porter", "hawker", "rickshaw",
-                                "construction worker", "helper"],
-    "Armed Forces": ["army", "navy", "air force", "armed forces", "soldier",
-                     "officer (army"],
-    "Not in Workforce": ["no occupation", "retired", "homemaker", "housewife",
-                         "student", "unemployed"],
+# NCO-2015 / ISCO-08 compatible 10 major groups + Not in Workforce. The dataset's
+# free-text occupation strings often look like "Building Construction Labourers, Other"
+# or "Market-Oriented Crop and Animal Producers, Other" — the classifier maps these
+# to the appropriate group using the descriptions below.
+NCO_GROUP_DEFINITIONS: dict[str, str] = {
+    "Managers": "Managers, directors, executives, officials, heads, chiefs, supervisors at any level.",
+    "Professionals": "Engineers, doctors, scientists, teachers, professors, lawyers, accountants, architects, software developers, designers, consultants — high-skill professional occupations.",
+    "Technicians and Associate Professionals": "Technicians, draftsmen, nurses, pharmacists, lab technicians, paramedics, computer operators, mid-skill technical workers.",
+    "Clerical Support Workers": "Clerks, secretaries, receptionists, data-entry, typists, office assistants, customer-service reps in clerical roles.",
+    "Service and Sales Workers": "Shop attendants, salespersons, market vendors, stall sellers, telemarketers, advertising sales agents, waiters, cooks, barbers, hairdressers, security/police/firefighters, hospitality workers.",
+    "Skilled Agricultural Workers": "Farmers, market-oriented crop/animal producers, horticulturists, fishermen, shepherds, plantation workers.",
+    "Craft and Related Trades Workers": "Carpenters, masons, tailors, weavers, electricians, plumbers, welders, mechanics, well-diggers and other skilled trades.",
+    "Plant and Machine Operators and Assemblers": "Machine/plant operators, drivers, conductors, pilots, assemblers, machinists, packing/filling machine tenders.",
+    "Elementary Occupations": "Labourers, construction/maintenance labourers, domestic helpers, cleaners, sweepers, porters, loaders, hawkers, rickshaw pullers, helpers, packers — unskilled physical work.",
+    "Armed Forces": "Army, navy, air force, soldiers, military officers.",
+    "Not in Workforce": "No occupation, retired, homemakers, students, unemployed.",
 }
 
 
@@ -83,7 +67,7 @@ MAPPINGS = CountryMappings(
     region_source_col="state",
     region_map=STATE_TO_ZONE,
     occupation_source_col="occupation",
-    occupation_groups=NCO_GROUPS,
+    occupation_group_definitions=NCO_GROUP_DEFINITIONS,
     region_keywords={
         "North": ["north", "delhi", "punjab", "rajasthan", "haryana", "northern"],
         "South": ["south", "tamil", "kerala", "karnataka", "andhra", "telangana",
@@ -103,5 +87,17 @@ MAPPINGS = CountryMappings(
         "Male": ["male", "man", "men", "boy"],
         "Female": ["female", "woman", "women", "girl", "lady"],
     },
-    occupation_keywords={k: v[:5] for k, v in NCO_GROUPS.items()},
+    occupation_keywords={
+        "Managers": ["manager", "director", "executive", "supervisor"],
+        "Professionals": ["engineer", "doctor", "scientist", "teacher", "lawyer", "accountant", "architect", "developer"],
+        "Technicians and Associate Professionals": ["technician", "nurse", "pharmacist"],
+        "Clerical Support Workers": ["clerk", "secretary", "receptionist"],
+        "Service and Sales Workers": ["sales", "cashier", "vendor", "waiter", "barber"],
+        "Skilled Agricultural Workers": ["farmer", "agricultural", "fisherman"],
+        "Craft and Related Trades Workers": ["carpenter", "mason", "electrician", "plumber", "welder", "mechanic"],
+        "Plant and Machine Operators and Assemblers": ["operator", "driver", "pilot"],
+        "Elementary Occupations": ["labourer", "laborer", "cleaner", "porter", "helper"],
+        "Armed Forces": ["army", "navy", "air force", "soldier"],
+        "Not in Workforce": ["unemployed", "homemaker", "retired", "student"],
+    },
 )

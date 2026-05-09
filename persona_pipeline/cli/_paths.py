@@ -20,6 +20,11 @@ def partitioned_path(country: str) -> Path:
     return cache_dir(country) / "02_partitioned.parquet"
 
 
+def occupation_lookup_path(country: str) -> Path:
+    """Versioned data asset: per-country (occupation, group) parquet committed to git."""
+    return DATA / "occupation_lookup" / f"{country}.parquet"
+
+
 def archetypes_path(country: str) -> Path:
     return DATA / "archetypes" / f"cards_{country}.parquet"
 

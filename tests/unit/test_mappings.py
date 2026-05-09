@@ -40,7 +40,8 @@ def test_sex_keyword_labels_match_archetype_output_labels(country):
 
 
 @pytest.mark.parametrize("country", COUNTRIES)
-def test_occupation_groups_consistent_with_keywords_labels(country):
+def test_occupation_keywords_match_definitions_when_set(country):
     m = get_mappings(country)
-    if m.occupation_groups is not None:
-        assert set(m.occupation_keywords.keys()) == set(m.occupation_groups.keys())
+    if m.occupation_group_definitions is not None:
+        # NL-query keyword labels must be a subset of the group labels — anything else is dead code.
+        assert set(m.occupation_keywords.keys()) <= set(m.occupation_group_definitions.keys())

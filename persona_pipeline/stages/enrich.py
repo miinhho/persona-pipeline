@@ -1,4 +1,10 @@
-"""Select demographic columns from raw and derive axes. Text columns are re-read from raw in the archetype stage."""
+"""Select demographic columns from raw and derive axes. Text columns are re-read from raw in the archetype stage.
+
+For countries with `occupation_group_definitions`, the occupation_group column is
+populated by left-joining a pre-computed `(occupation, occupation_group)` lookup
+parquet (see stages/classify_occupation.py). Countries with native categorical
+occupation columns (Singapore/Brazil/France) bypass the lookup.
+"""
 import polars as pl
 
 from persona_pipeline.mappings import (
@@ -23,19 +29,6 @@ def _age_gen_expr(mapping: CountryMappings) -> pl.Expr:
     )
 
 
-def _occupation_group_expr(mapping: CountryMappings) -> pl.Expr:
-    src = mapping.occupation_source_col
-    if mapping.occupation_groups is None:
-        return pl.col(src).alias(OCCUPATION_GROUP)
-    expr = pl.lit("Other")
-    for group, keywords in reversed(list(mapping.occupation_groups.items())):
-        contains_any = pl.lit(False)
-        for kw in keywords:
-            contains_any = contains_any | pl.col(src).str.contains(kw, literal=True)
-        expr = pl.when(contains_any).then(pl.lit(group)).otherwise(expr)
-    return expr.alias(OCCUPATION_GROUP)
-
-
 def _sex_expr(mapping: CountryMappings) -> pl.Expr | None:
     if mapping.sex_map is None:
         return None
@@ -51,24 +44,51 @@ def _region_expr(mapping: CountryMappings) -> pl.Expr:
     return pl.col(src).replace_strict(mapping.region_map, default="Other").alias(REGION)
 
 
-def enrich(lf: pl.LazyFrame, mapping: CountryMappings) -> pl.LazyFrame:
-    needed = {UUID, AGE, SEX, mapping.occupation_source_col}
+def enrich(
+    lf: pl.LazyFrame,
+    mapping: CountryMappings,
+    occupation_lookup: pl.LazyFrame | None = None,
+) -> pl.LazyFrame:
+    """Build the enriched frame.
+
+    `occupation_lookup` is a (occupation, occupation_group) frame produced by the
+    classify_occupation stage. Required when `mapping.occupation_group_definitions`
+    is set; ignored otherwise.
+    """
+    src = mapping.occupation_source_col
+    needed = {UUID, AGE, SEX, src}
     if mapping.region_source_col:
         needed.add(mapping.region_source_col)
 
-    new_cols = [_age_gen_expr(mapping), _occupation_group_expr(mapping)]
+    new_cols = [_age_gen_expr(mapping)]
     sex = _sex_expr(mapping)
     if sex is not None:
         new_cols.append(sex)
     if REGION in mapping.axes:
         new_cols.append(_region_expr(mapping))
 
-    final_cols = [UUID, AGE, *mapping.axes, SEGMENT_KEY]
-    return (
-        lf.select(list(needed))
-        .with_columns(new_cols)
-        .with_columns(
-            pl.concat_str([pl.col(a) for a in mapping.axes], separator=SEGMENT_SEP).alias(SEGMENT_KEY)
+    base = lf.select(list(needed)).with_columns(new_cols)
+
+    if mapping.occupation_group_definitions is None:
+        # Native category — source column already holds the group value.
+        base = base.with_columns(pl.col(src).alias(OCCUPATION_GROUP))
+    else:
+        if occupation_lookup is None:
+            raise ValueError(
+                f"{mapping.country}: occupation_lookup required when occupation_group_definitions is set. "
+                f"Run `stage-classify-occupation {mapping.country}` first."
+            )
+        # Left-join lookup; rows whose occupation isn't in the lookup fall back to "Other".
+        lookup = occupation_lookup.select([
+            pl.col("occupation").alias(src),
+            pl.col("occupation_group").alias(OCCUPATION_GROUP),
+        ])
+        base = (
+            base.join(lookup, on=src, how="left")
+            .with_columns(pl.col(OCCUPATION_GROUP).fill_null("Other"))
         )
-        .select(final_cols)
-    )
+
+    final_cols = [UUID, AGE, *mapping.axes, SEGMENT_KEY]
+    return base.with_columns(
+        pl.concat_str([pl.col(a) for a in mapping.axes], separator=SEGMENT_SEP).alias(SEGMENT_KEY)
+    ).select(final_cols)

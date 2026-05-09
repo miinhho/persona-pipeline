@@ -41,10 +41,14 @@ class CountryMappings:
 
     sex_map: dict[str, str] | None = None
 
-    # When occupation_groups=None the source column already holds the categorical group
-    # (Singapore / Brazil / France).
+    # When occupation_group_definitions=None the source column already holds the categorical
+    # group (Singapore / Brazil / France). Otherwise an LLM-as-classifier (see
+    # stages/classify_occupation.py) maps the free-text source column to one of these labels;
+    # the mapping is stored as a parquet asset and replayed via lookup join in enrich.
+    # The dict is `{label: short description for the classifier}` — categories are defined
+    # once here, never duplicated as keyword lists.
     occupation_source_col: str = "occupation"
-    occupation_groups: dict[str, list[str]] | None = None
+    occupation_group_definitions: dict[str, str] | None = None
 
     region_keywords: dict[str, list[str]] = field(default_factory=dict)
     age_gen_keywords: dict[str, list[str]] = field(default_factory=dict)

@@ -101,7 +101,7 @@ MAPPINGS = CountryMappings(
     region_source_col="departement",
     region_map=DEPARTEMENT_TO_REGION,
     occupation_source_col="occupation",
-    occupation_groups=None,
+    occupation_group_definitions=None,
     region_keywords={
         "Île-de-France": ["paris", "île-de-france", "ile de france", "parisien"],
         "Auvergne-Rhône-Alpes": ["lyon", "rhône", "rhone", "alpes", "grenoble"],

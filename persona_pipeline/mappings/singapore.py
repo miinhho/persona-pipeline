@@ -28,7 +28,7 @@ MAPPINGS = CountryMappings(
         "culinary_persona": "[Culinary]",
     },
     occupation_source_col="occupation",
-    occupation_groups=None,
+    occupation_group_definitions=None,
     age_gen_keywords={
         "young": ["young", "youth", "20s", "early 30s"],
         "middle_aged": ["middle", "middle-aged", "30s", "40s", "50s"],

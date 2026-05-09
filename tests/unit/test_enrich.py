@@ -14,8 +14,18 @@ def _korea_row(**overrides):
     return base
 
 
-def _enrich(country, rows):
-    return enrich(pl.LazyFrame(rows), get_mappings(country)).collect()
+def _enrich(country, rows, lookup=None):
+    """Tests don't care about classifier quality — auto-build a lookup that maps every
+    raw occupation to the first defined group, unless the test explicitly passes its own."""
+    mapping = get_mappings(country)
+    if mapping.occupation_group_definitions is not None and lookup is None:
+        first_group = next(iter(mapping.occupation_group_definitions))
+        occs = sorted({r.get("occupation", "") for r in rows if r.get("occupation")})
+        lookup = pl.LazyFrame({
+            "occupation": occs,
+            "occupation_group": [first_group] * len(occs),
+        })
+    return enrich(pl.LazyFrame(rows), mapping, occupation_lookup=lookup).collect()
 
 
 def test_text_columns_not_carried_through_to_cache():
@@ -50,8 +60,10 @@ def test_unmapped_region_falls_back_to_other():
     assert out["region"][0] == "Other"
 
 
-def test_unmatched_occupation_falls_back_to_other():
-    out = _enrich("Korea", [_korea_row(occupation="외계인 통역사")])
+def test_occupation_not_in_lookup_falls_back_to_other():
+    # Empty lookup → enrich's left-join produces null → fill_null("Other").
+    empty_lookup = pl.LazyFrame({"occupation": ["다른 직업"], "occupation_group": ["전문가"]})
+    out = _enrich("Korea", [_korea_row(occupation="외계인 통역사")], lookup=empty_lookup)
     assert out["occupation_group"][0] == "Other"
 
 
