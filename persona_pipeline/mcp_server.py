@@ -219,5 +219,48 @@ def get_persona(
         return store.get(country, uuid)
 
 
+import json
+from pathlib import Path
+
+
+@mcp.resource(
+    "personas://catalog",
+    name="catalog",
+    description="List of built persona stores (one entry per country with n_personas and axes names).",
+    mime_type="application/json",
+)
+def catalog() -> str:
+    """Return JSON list of built countries discovered via *.catalog.json sidecars."""
+    countries: list[dict] = []
+    # Discover by globbing the directory of any country's would-be store path.
+    # `store.store_path("_")` resolves the parent directory regardless of the country.
+    store_dir = store.store_path("_").parent
+    if store_dir.exists():
+        for path in sorted(store_dir.glob("*.catalog.json")):
+            data = json.loads(path.read_text())
+            countries.append({
+                "country": data["country"],
+                "n_personas": data["n_personas"],
+                "axes": list(data["axes"].keys()),
+            })
+    return json.dumps(countries, ensure_ascii=False)
+
+
+@mcp.resource(
+    "personas://catalog/{country}",
+    name="country_catalog",
+    description="Per-country catalog: axes with value counts, schema, n_personas, built_at.",
+    mime_type="application/json",
+)
+def country_catalog(country: str) -> str:
+    """Return JSON catalog for one country. Raises ValueError if not built."""
+    data = store.load_catalog(country)
+    if data is None:
+        raise ValueError(
+            f"unknown country '{country}'. See personas://catalog for built countries."
+        )
+    return json.dumps(data, ensure_ascii=False)
+
+
 if __name__ == "__main__":
     mcp.run()

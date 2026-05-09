@@ -188,3 +188,57 @@ def test_sample_personas_default_ctx_none_still_works(korea_store):
     # Regression: existing tests pass ctx implicitly as None
     out = mcp_server.sample_personas(country="Korea", n=1)
     assert len(out) == 1
+
+
+import json as _json
+
+
+@pytest.fixture
+def korea_with_catalog(tmp_path, monkeypatch):
+    """Standalone fixture: 110 rows (80 수도권, 30 영남권), writes catalog sidecar."""
+    monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
+    rows = []
+    for i in range(110):
+        rows.append({
+            "country": "Korea", "uuid": f"kc-{i}",
+            "region": "수도권" if i < 80 else "영남권",
+            "age_gen": "청년" if i % 2 == 0 else "중장년",
+            "sex": "여자" if i % 3 == 0 else "남자",
+            "occupation_group": "사무",
+            "age": 30 + (i % 50), "province": "서울", "occupation": "사무원",
+            "hobbies": ["독서"],
+            "persona": f"persona {i}", "professional_persona": "",
+            "sports_persona": "", "arts_persona": "",
+            "travel_persona": "", "culinary_persona": "", "family_persona": "",
+        })
+    pl.DataFrame(rows).write_parquet(tmp_path / "Korea.parquet", compression="zstd")
+    store.write_catalog("Korea")
+
+
+def test_catalog_resource_lists_built_countries(korea_with_catalog):
+    payload = _json.loads(mcp_server.catalog())
+    assert isinstance(payload, list)
+    countries = [c["country"] for c in payload]
+    assert "Korea" in countries
+    korea = next(c for c in payload if c["country"] == "Korea")
+    assert korea["n_personas"] == 110
+    assert set(korea["axes"]) == {"region", "age_gen", "sex", "occupation_group"}
+
+
+def test_catalog_resource_returns_empty_list_when_no_stores(tmp_path, monkeypatch):
+    monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
+    payload = _json.loads(mcp_server.catalog())
+    assert payload == []
+
+
+def test_country_catalog_resource_returns_axes_and_counts(korea_with_catalog):
+    payload = _json.loads(mcp_server.country_catalog("Korea"))
+    assert payload["country"] == "Korea"
+    assert payload["n_personas"] == 110
+    assert payload["axes"]["region"]["수도권"] == 80
+    assert "schema" in payload and "uuid" in payload["schema"]
+
+
+def test_country_catalog_resource_unknown_country_raises_value_error():
+    with pytest.raises(ValueError, match="unknown country"):
+        mcp_server.country_catalog("Atlantis")
