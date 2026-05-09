@@ -78,7 +78,7 @@ def test_get_persona_returns_none_when_missing(korea_store):
 
 def test_unknown_country_raises_tool_error(korea_store, monkeypatch, tmp_path):
     # Unknown country name (not in mappings registry)
-    with pytest.raises(ToolError, match="unknown country"):
+    with pytest.raises(ToolError, match="Unknown country"):
         mcp_server.sample_personas(country="Atlantis", n=1)
 
     # Valid country whose store parquet has not been built

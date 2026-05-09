@@ -50,7 +50,7 @@ def _validate_country(country: str) -> None:
     try:
         get_mappings(country)
     except KeyError as exc:
-        raise ToolError(f"unknown country '{country}'. {exc.args[0]}") from exc
+        raise ToolError(str(exc.args[0])) from exc
     path = store.store_path(country)
     if not path.exists():
         built = store.list_built_countries()
