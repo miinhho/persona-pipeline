@@ -52,3 +52,22 @@ def sample(
           .drop("_rand")
           .collect()
     )
+
+
+def distribution(
+    country: str, group_by: list[str], filter: dict | None = None
+) -> pl.DataFrame:
+    """Group filtered rows by `group_by` columns and return counts (descending)."""
+    lf = _apply_filter(load(country), filter)
+    return (
+        lf.group_by(group_by)
+          .agg(pl.len().alias("count"))
+          .sort("count", descending=True)
+          .collect()
+    )
+
+
+def get(country: str, uuid: str) -> dict | None:
+    """Look up one persona by uuid; return its row as a dict, or None if missing."""
+    df = load(country).filter(pl.col("uuid") == uuid).limit(1).collect()
+    return df.row(0, named=True) if df.height else None
