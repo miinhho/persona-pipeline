@@ -71,3 +71,29 @@ def get(country: str, uuid: str) -> dict | None:
     """Look up one persona by uuid; return its row as a dict, or None if missing."""
     df = load(country).filter(pl.col("uuid") == uuid).limit(1).collect()
     return df.row(0, named=True) if df.height else None
+
+
+_TEXT_COLS: tuple[str, ...] = (
+    "persona", "professional_persona", "sports_persona", "arts_persona",
+    "travel_persona", "culinary_persona", "family_persona",
+)
+
+
+def search(
+    country: str, query: str, top_k: int = 10, filter: dict | None = None
+) -> pl.DataFrame:
+    """Substring search across persona text fields.
+
+    v1: literal `str.contains` over each text column. Fast for ~1M rows because
+    polars vectorizes the scan and the axes filter (if any) is predicate-pushed
+    down before the substring evaluation.
+    """
+    lf = _apply_filter(load(country), filter)
+    schema = lf.collect_schema().names()
+    available = [c for c in _TEXT_COLS if c in schema]
+    if not available:
+        return lf.head(0).collect()
+    cond = pl.col(available[0]).str.contains(query, literal=True)
+    for c in available[1:]:
+        cond = cond | pl.col(c).str.contains(query, literal=True)
+    return lf.filter(cond).head(top_k).collect()

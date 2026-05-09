@@ -110,3 +110,49 @@ def test_get_returns_row_dict(korea_store):
 
 def test_get_returns_none_when_uuid_missing(korea_store):
     assert store.get("Korea", "does-not-exist") is None
+
+
+@pytest.fixture
+def korea_search_store(tmp_path, monkeypatch):
+    rows = [
+        {"country": "Korea", "uuid": "u1", "region": "수도권", "age_gen": "청년",
+         "sex": "남자", "occupation_group": "전문가", "age": 28, "province": "서울",
+         "occupation": "개발자", "hobbies": [],
+         "persona": "강남에서 일하는 개발자입니다",
+         "professional_persona": "백엔드 시니어",
+         "sports_persona": "", "arts_persona": "", "travel_persona": "",
+         "culinary_persona": "", "family_persona": ""},
+        {"country": "Korea", "uuid": "u2", "region": "영남권", "age_gen": "노년",
+         "sex": "여자", "occupation_group": "농림어업", "age": 70, "province": "부산",
+         "occupation": "농민", "hobbies": [],
+         "persona": "어업 종사자입니다",
+         "professional_persona": "갈치잡이",
+         "sports_persona": "", "arts_persona": "", "travel_persona": "",
+         "culinary_persona": "", "family_persona": "강남에 사는 자녀를 둠"},
+    ]
+    df = pl.DataFrame(rows)
+    path = tmp_path / "Korea.parquet"
+    df.write_parquet(path, compression="zstd")
+    monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
+    return path
+
+
+def test_search_substring_across_text_columns(korea_search_store):
+    df = store.search("Korea", "강남", top_k=10)
+    # u1 has '강남' in persona, u2 has '강남' in family_persona
+    assert set(df["uuid"].to_list()) == {"u1", "u2"}
+
+
+def test_search_respects_top_k(korea_search_store):
+    df = store.search("Korea", "강남", top_k=1)
+    assert df.height == 1
+
+
+def test_search_with_filter(korea_search_store):
+    df = store.search("Korea", "강남", top_k=10, filter={"region": "수도권"})
+    assert df["uuid"].to_list() == ["u1"]
+
+
+def test_search_no_match_returns_empty(korea_search_store):
+    df = store.search("Korea", "지구상에없는단어", top_k=10)
+    assert df.height == 0
