@@ -4,6 +4,7 @@ Run with: `python -m persona_pipeline.mcp_server` (stdio transport).
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from contextlib import contextmanager
 from time import perf_counter
@@ -217,10 +218,6 @@ def get_persona(
     _validate_country(country)
     with _observe(ctx, "get_persona", country=country, uuid=uuid):
         return store.get(country, uuid)
-
-
-import json
-from pathlib import Path
 
 
 @mcp.resource(
