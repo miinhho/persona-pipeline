@@ -7,3 +7,4 @@ from persona_pipeline.cli import download  # noqa: F401, E402
 from persona_pipeline.cli import classify_occupation  # noqa: F401, E402
 from persona_pipeline.cli import build  # noqa: F401, E402
 from persona_pipeline.cli import serve  # noqa: F401, E402
+from persona_pipeline.cli import serve_http  # noqa: F401, E402
