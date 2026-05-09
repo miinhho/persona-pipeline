@@ -151,3 +151,40 @@ def test_validate_axis_names_singapore_rejects_region():
         _validate_for_test("Singapore", ["region"], purpose="filter axis")
     assert "region" in str(exc_info.value)
     assert "Singapore" in str(exc_info.value)
+
+
+def test_sample_personas_with_ctx_logs_two_info_calls(korea_store):
+    ctx = MagicMock()
+    out = mcp_server.sample_personas(country="Korea", n=2, ctx=ctx)
+    assert len(out) == 2
+    # Two info calls (start + finish)
+    assert ctx.info.call_count >= 2
+    start_msg = ctx.info.call_args_list[0].args[0]
+    assert "sample_personas" in start_msg
+
+
+def test_sample_personas_empty_filter_result_warns(korea_store):
+    # Filter to a region that doesn't exist in the fixture; expect zero rows + warning
+    ctx = MagicMock()
+    out = mcp_server.sample_personas(
+        country="Korea", n=5, region=["존재하지않는지역"], ctx=ctx
+    )
+    assert out == []
+    ctx.warning.assert_called_once()
+    warn_msg = ctx.warning.call_args.args[0]
+    assert "empty" in warn_msg.lower()
+
+
+def test_persona_distribution_unknown_group_by_raises_tool_error(korea_store):
+    with pytest.raises(_ToolError) as exc_info:
+        mcp_server.persona_distribution(country="Korea", group_by=["foo"])
+    msg = str(exc_info.value)
+    assert "group_by axis" in msg
+    assert "foo" in msg
+    assert "personas://catalog/Korea" in msg
+
+
+def test_sample_personas_default_ctx_none_still_works(korea_store):
+    # Regression: existing tests pass ctx implicitly as None
+    out = mcp_server.sample_personas(country="Korea", n=1)
+    assert len(out) == 1

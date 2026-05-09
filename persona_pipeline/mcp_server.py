@@ -7,9 +7,11 @@ from __future__ import annotations
 from collections.abc import Iterable
 from contextlib import contextmanager
 from time import perf_counter
+from typing import Annotated
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
+from pydantic import Field
 
 from persona_pipeline import store
 from persona_pipeline.mappings import get_mappings
@@ -88,13 +90,28 @@ def _axes_filter(
 
 @mcp.tool()
 def sample_personas(
-    country: str,
-    n: int = 10,
-    region: list[str] | None = None,
-    age_gen: list[str] | None = None,
-    sex: list[str] | None = None,
-    occupation_group: list[str] | None = None,
-    seed: int = 0,
+    country: Annotated[str, Field(description=
+        "Country name. List built countries: read 'personas://catalog'."
+    )],
+    n: Annotated[int, Field(ge=1, le=1000, description=
+        "Number of personas to return (1-1000)."
+    )] = 10,
+    region: Annotated[list[str] | None, Field(description=
+        "Filter by region. Values per country in 'personas://catalog/{country}'."
+    )] = None,
+    age_gen: Annotated[list[str] | None, Field(description=
+        "Filter by age generation. Values per country in 'personas://catalog/{country}'."
+    )] = None,
+    sex: Annotated[list[str] | None, Field(description=
+        "Filter by sex. Values per country in 'personas://catalog/{country}'."
+    )] = None,
+    occupation_group: Annotated[list[str] | None, Field(description=
+        "Filter by occupation group. Values per country in 'personas://catalog/{country}'."
+    )] = None,
+    seed: Annotated[int, Field(ge=0, description=
+        "Same (filter, n, seed) returns identical rows. Use for reproducibility."
+    )] = 0,
+    ctx: Context | None = None,
 ) -> list[dict]:
     """Return up to `n` raw personas from `country`, filtered by axes.
 
@@ -103,51 +120,103 @@ def sample_personas(
     Sampling is deterministic for fixed (filter, n, seed).
     """
     _validate_country(country)
-    return store.sample(
-        country, _axes_filter(region, age_gen, sex, occupation_group), n, seed,
-    ).to_dicts()
+    filt = _axes_filter(region, age_gen, sex, occupation_group)
+    if filt:
+        _validate_axis_names(country, filt.keys(), purpose="filter axis")
+    with _observe(ctx, "sample_personas",
+                  country=country, n=n, filter=filt, seed=seed):
+        result = store.sample(country, filt, n, seed).to_dicts()
+        if ctx is not None and not result:
+            ctx.warning(f"sample_personas: empty result for filter={filt}")
+        return result
 
 
 @mcp.tool()
 def search_personas(
-    country: str,
-    query: str,
-    top_k: int = 10,
-    region: list[str] | None = None,
-    age_gen: list[str] | None = None,
-    sex: list[str] | None = None,
-    occupation_group: list[str] | None = None,
+    country: Annotated[str, Field(description=
+        "Country name. List built countries: read 'personas://catalog'."
+    )],
+    query: Annotated[str, Field(description=
+        "Literal substring (not regex). Matched against persona, professional_persona, "
+        "sports_persona, arts_persona, travel_persona, culinary_persona, family_persona text fields."
+    )],
+    top_k: Annotated[int, Field(ge=1, le=1000, description=
+        "Maximum number of matches to return (1-1000)."
+    )] = 10,
+    region: Annotated[list[str] | None, Field(description=
+        "Optional region filter. Values per country in 'personas://catalog/{country}'."
+    )] = None,
+    age_gen: Annotated[list[str] | None, Field(description=
+        "Optional age generation filter."
+    )] = None,
+    sex: Annotated[list[str] | None, Field(description=
+        "Optional sex filter."
+    )] = None,
+    occupation_group: Annotated[list[str] | None, Field(description=
+        "Optional occupation group filter."
+    )] = None,
+    ctx: Context | None = None,
 ) -> list[dict]:
     """Substring search across persona text fields, optionally constrained by axes."""
     _validate_country(country)
-    return store.search(
-        country, query, top_k,
-        _axes_filter(region, age_gen, sex, occupation_group),
-    ).to_dicts()
+    filt = _axes_filter(region, age_gen, sex, occupation_group)
+    if filt:
+        _validate_axis_names(country, filt.keys(), purpose="filter axis")
+    with _observe(ctx, "search_personas",
+                  country=country, query=query, top_k=top_k, filter=filt):
+        result = store.search(country, query, top_k, filt).to_dicts()
+        if ctx is not None and not result:
+            ctx.warning(f"search_personas: no matches for query={query!r}")
+        return result
 
 
 @mcp.tool()
 def persona_distribution(
-    country: str,
-    group_by: list[str],
-    region: list[str] | None = None,
-    age_gen: list[str] | None = None,
-    sex: list[str] | None = None,
-    occupation_group: list[str] | None = None,
+    country: Annotated[str, Field(description=
+        "Country name. List built countries: read 'personas://catalog'."
+    )],
+    group_by: Annotated[list[str], Field(description=
+        "Axis names to group by. Same set as filter axes; see 'personas://catalog/{country}'."
+    )],
+    region: Annotated[list[str] | None, Field(description=
+        "Optional region filter applied before grouping."
+    )] = None,
+    age_gen: Annotated[list[str] | None, Field(description=
+        "Optional age generation filter applied before grouping."
+    )] = None,
+    sex: Annotated[list[str] | None, Field(description=
+        "Optional sex filter applied before grouping."
+    )] = None,
+    occupation_group: Annotated[list[str] | None, Field(description=
+        "Optional occupation group filter applied before grouping."
+    )] = None,
+    ctx: Context | None = None,
 ) -> list[dict]:
     """Group filtered rows by `group_by` columns and return counts (descending)."""
     _validate_country(country)
-    return store.distribution(
-        country, group_by,
-        _axes_filter(region, age_gen, sex, occupation_group),
-    ).to_dicts()
+    _validate_axis_names(country, group_by, purpose="group_by axis")
+    filt = _axes_filter(region, age_gen, sex, occupation_group)
+    if filt:
+        _validate_axis_names(country, filt.keys(), purpose="filter axis")
+    with _observe(ctx, "persona_distribution",
+                  country=country, group_by=group_by, filter=filt):
+        return store.distribution(country, group_by, filt).to_dicts()
 
 
 @mcp.tool()
-def get_persona(country: str, uuid: str) -> dict | None:
+def get_persona(
+    country: Annotated[str, Field(description=
+        "Country name. List built countries: read 'personas://catalog'."
+    )],
+    uuid: Annotated[str, Field(description=
+        "Persona UUID returned in `uuid` field of sample/search results."
+    )],
+    ctx: Context | None = None,
+) -> dict | None:
     """Look up one persona by uuid. Returns None if not found."""
     _validate_country(country)
-    return store.get(country, uuid)
+    with _observe(ctx, "get_persona", country=country, uuid=uuid):
+        return store.get(country, uuid)
 
 
 if __name__ == "__main__":
