@@ -167,3 +167,41 @@ def test_distribution_with_empty_filter_result(korea_store):
     df = store.distribution("Korea", group_by=["region"], filter={"region": "지구상에없는지역"})
     assert df.height == 0
     assert "count" in df.columns
+
+
+import json
+
+
+def test_catalog_path_returns_sidecar_alongside_store():
+    p = store.catalog_path("Korea")
+    assert p.name == "Korea.catalog.json"
+    assert p.parent == store.store_path("Korea").parent
+
+
+def test_write_catalog_produces_expected_schema(korea_store):
+    out = store.write_catalog("Korea")
+    assert out.exists()
+    data = json.loads(out.read_text())
+    assert data["country"] == "Korea"
+    assert data["n_personas"] == 110  # fixture has 110 rows
+    assert set(data["axes"].keys()) == {"region", "age_gen", "sex", "occupation_group"}
+    assert data["axes"]["region"]["수도권"] == 80
+    assert data["axes"]["region"]["영남권"] == 20
+    assert data["axes"]["region"]["호남권"] == 10
+    assert "country" in data["schema"]
+    assert "uuid" in data["schema"]
+    assert "persona" in data["schema"]
+    assert "built_at" in data and data["built_at"].endswith("Z")
+
+
+def test_load_catalog_round_trips(korea_store):
+    store.write_catalog("Korea")
+    loaded = store.load_catalog("Korea")
+    assert loaded is not None
+    assert loaded["country"] == "Korea"
+    assert loaded["n_personas"] == 110
+
+
+def test_load_catalog_returns_none_when_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(store, "store_path", lambda c: tmp_path / f"{c}.parquet")
+    assert store.load_catalog("Atlantis") is None

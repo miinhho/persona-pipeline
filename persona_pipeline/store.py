@@ -73,6 +73,58 @@ def get(country: str, uuid: str) -> dict | None:
     return df.row(0, named=True) if df.height else None
 
 
+import json
+from datetime import datetime, timezone
+
+from persona_pipeline.mappings import get_mappings
+
+
+def catalog_path(country: str) -> Path:
+    """Sidecar JSON next to the country store parquet."""
+    return store_path(country).with_suffix("").with_suffix(".catalog.json")
+
+
+def write_catalog(country: str) -> Path:
+    """Compute axes value-counts + schema from the country store and write the sidecar.
+
+    Reads the just-written `{country}.parquet`, groups by each axis declared in the
+    country's mapping, and emits a JSON document with the structure documented in
+    `docs/superpowers/specs/2026-05-09-mcp-ux-upgrade-design.md`.
+    """
+    mapping = get_mappings(country)
+    lf = load(country)
+    schema = lf.collect_schema()
+    n_personas = lf.select(pl.len()).collect().item()
+    axes: dict[str, dict[str, int]] = {}
+    for axis in mapping.axes:
+        df = (
+            lf.group_by(axis)
+              .agg(pl.len().alias("count"))
+              .sort("count", descending=True)
+              .collect()
+        )
+        axes[axis] = {row[axis]: row["count"] for row in df.iter_rows(named=True)}
+    data = {
+        "country": country,
+        "n_personas": n_personas,
+        "axes": axes,
+        "schema": list(schema.names()),
+        "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    }
+    out = catalog_path(country)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    return out
+
+
+def load_catalog(country: str) -> dict | None:
+    """Read the catalog sidecar; return None if absent."""
+    path = catalog_path(country)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
 _TEXT_COLS: tuple[str, ...] = (
     "persona", "professional_persona", "sports_persona", "arts_persona",
     "travel_persona", "culinary_persona", "family_persona",
