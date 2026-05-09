@@ -231,3 +231,79 @@ def test_structured_log_includes_token_id_when_attached(capsys):
     err = capsys.readouterr().err
     record = _json.loads([ln for ln in err.splitlines() if ln.strip().startswith("{")][-1])
     assert record["token_id"] == "kfull…"
+
+
+@pytest.fixture
+def korea_with_catalog_for_remote(tmp_path, monkeypatch):
+    """Write a minimal Korea store + catalog under PERSONA_STORE_DATA_DIR=tmp_path."""
+    import polars as pl
+    from persona_pipeline import store
+
+    monkeypatch.setenv("PERSONA_STORE_DATA_DIR", str(tmp_path))
+    rows = [
+        {"country": "Korea", "uuid": "u", "region": "수도권", "age_gen": "청년",
+         "sex": "여자", "occupation_group": "사무", "age": 30, "province": "서울",
+         "occupation": "사무원", "hobbies": ["독서"],
+         "persona": "p", "professional_persona": "",
+         "sports_persona": "", "arts_persona": "",
+         "travel_persona": "", "culinary_persona": "", "family_persona": ""},
+    ]
+    pl.DataFrame(rows).write_parquet(tmp_path / "Korea.parquet", compression="zstd")
+    store.write_catalog("Korea")
+    return tmp_path
+
+
+from unittest.mock import MagicMock
+
+
+def _stub_mcp() -> MagicMock:
+    """Stub FastMCP whose `streamable_http_app()` returns a tiny Starlette app
+    with one POST /mcp endpoint, so we can exercise the middleware chain without
+    booting the real server."""
+    sub = Starlette(routes=[Route("/mcp", _ok, methods=["POST"])])
+    mcp = MagicMock()
+    mcp.streamable_http_app = MagicMock(return_value=sub)
+    return mcp
+
+
+def test_build_app_health_reachable_without_auth(monkeypatch, korea_with_catalog_for_remote):
+    monkeypatch.setenv("PERSONA_STORE_API_KEYS", "k1")
+    app = remote.build_app(_stub_mcp())
+    c = TestClient(app)
+    r = c.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert "stores" in body and "Korea" in body["stores"]
+
+
+def test_build_app_mcp_path_requires_auth(monkeypatch):
+    monkeypatch.setenv("PERSONA_STORE_API_KEYS", "k1")
+    app = remote.build_app(_stub_mcp())
+    c = TestClient(app)
+    r = c.post("/mcp", json={})
+    assert r.status_code == 401
+
+
+def test_build_app_mcp_path_succeeds_with_valid_token(monkeypatch):
+    monkeypatch.setenv("PERSONA_STORE_API_KEYS", "k1")
+    app = remote.build_app(_stub_mcp())
+    c = TestClient(app)
+    r = c.post("/mcp", json={}, headers={"authorization": "Bearer k1"})
+    assert r.status_code == 200
+
+
+def test_build_app_raises_when_api_keys_unset(monkeypatch):
+    monkeypatch.delenv("PERSONA_STORE_API_KEYS", raising=False)
+    with pytest.raises(RuntimeError, match="PERSONA_STORE_API_KEYS"):
+        remote.build_app(_stub_mcp())
+
+
+def test_build_app_health_returns_empty_stores_when_no_data_dir(tmp_path, monkeypatch):
+    # PERSONA_STORE_DATA_DIR points to an empty directory
+    monkeypatch.setenv("PERSONA_STORE_API_KEYS", "k1")
+    monkeypatch.setenv("PERSONA_STORE_DATA_DIR", str(tmp_path))
+    app = remote.build_app(_stub_mcp())
+    r = TestClient(app).get("/health")
+    assert r.status_code == 200
+    assert r.json()["stores"] == []

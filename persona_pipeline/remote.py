@@ -12,8 +12,14 @@ import time
 import uuid
 from collections import defaultdict, deque
 
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Mount, Route
+
+from persona_pipeline import store
 
 
 class _RequestIdMiddleware(BaseHTTPMiddleware):
@@ -142,3 +148,46 @@ class _StructuredLogMiddleware(BaseHTTPMiddleware):
         }
         print(json.dumps(record, ensure_ascii=False), file=sys.stderr, flush=True)
         return response
+
+
+async def _health(request: Request) -> Response:
+    """Liveness/readiness check. Lists built country stores discovered via sidecars."""
+    countries: list[str] = []
+    store_dir = store.store_path("_").parent
+    if store_dir.exists():
+        countries = sorted(
+            p.name.replace(".catalog.json", "")
+            for p in store_dir.glob("*.catalog.json")
+        )
+    return JSONResponse({"status": "ok", "stores": countries})
+
+
+def build_app(mcp) -> Starlette:
+    """Assemble the deployable ASGI app.
+
+    Layers (outer-to-inner):
+      1. _RequestIdMiddleware — ensures every request carries an id
+      2. _AuthMiddleware       — Bearer key gate (exempts /health)
+      3. _RateLimitMiddleware  — per-token rolling-window
+      4. _StructuredLogMiddleware — emits one JSON line per request to stderr
+
+    Routes:
+      - GET /health      — unauthenticated liveness check
+      - everything else  — mounted FastMCP streamable-http app at root
+    """
+    api_keys = _load_api_keys()
+    rate = int(os.environ.get("PERSONA_STORE_RATE_LIMIT", "60"))
+
+    mcp_asgi = mcp.streamable_http_app()
+
+    middleware = [
+        Middleware(_RequestIdMiddleware),
+        Middleware(_AuthMiddleware, api_keys=api_keys, exempt_paths=("/health",)),
+        Middleware(_RateLimitMiddleware, per_minute=rate),
+        Middleware(_StructuredLogMiddleware),
+    ]
+    routes = [
+        Route("/health", _health, methods=["GET"]),
+        Mount("/", app=mcp_asgi),
+    ]
+    return Starlette(routes=routes, middleware=middleware)
