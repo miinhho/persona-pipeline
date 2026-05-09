@@ -13,7 +13,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
-sim = ["anthropic>=0.40"]
+mcp = ["mcp>=1.2", "anthropic>=0.40"]
 
 [project.scripts]
 persona-pipeline = "persona_pipeline.cli.app:app"
