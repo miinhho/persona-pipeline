@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from persona_pipeline.mappings import (
+from persona_mcp_store.mappings import (
     AGE, AGE_GEN, AGE_GEN_BOUNDS, CountryMappings, HOBBIES_COL,
     OCCUPATION_GROUP, REGION, SEX, UUID,
 )

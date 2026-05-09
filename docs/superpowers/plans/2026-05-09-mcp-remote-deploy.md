@@ -4,7 +4,7 @@
 
 **Goal:** Add a streamable-http MCP transport with API key auth, in-memory rate limiting, structured stderr logging, and a containerized deployment, so multiple authenticated clients can connect to a single remote persona-store instance.
 
-**Architecture:** A new `persona_pipeline/remote.py` exposes `build_app(mcp)` that wraps `mcp.streamable_http_app()` (returned by FastMCP 1.27 — confirmed signature `() -> Starlette`) with four middleware (request_id → auth → rate limit → structured log) plus an unauthenticated `/health` route. A new `serve-http` Typer command wires this to uvicorn. `store.store_path()` becomes env-driven so the container can mount data at `/data`. A multi-stage Dockerfile and docker-compose example complete the deploy story.
+**Architecture:** A new `persona_mcp_store/remote.py` exposes `build_app(mcp)` that wraps `mcp.streamable_http_app()` (returned by FastMCP 1.27 — confirmed signature `() -> Starlette`) with four middleware (request_id → auth → rate limit → structured log) plus an unauthenticated `/health` route. A new `serve-http` Typer command wires this to uvicorn. `store.store_path()` becomes env-driven so the container can mount data at `/data`. A multi-stage Dockerfile and docker-compose example complete the deploy story.
 
 **Tech Stack:** Python 3.11, mcp SDK 1.27 (`mcp.server.fastmcp.FastMCP.streamable_http_app`), starlette ≥0.40 (middleware + TestClient), uvicorn ≥0.30 (ASGI server), pydantic 2 (already transitive), pytest, typer, Docker.
 
@@ -14,14 +14,14 @@
 
 **Modify:**
 - `pyproject.toml` — add `starlette>=0.40` and `uvicorn>=0.30` to `[mcp]` extra
-- `persona_pipeline/store.py` — `store_path` reads `PERSONA_STORE_DATA_DIR` env var (default `data/store`)
-- `persona_pipeline/cli/app.py` — register `serve_http` submodule
+- `persona_mcp_store/store.py` — `store_path` reads `PERSONA_STORE_DATA_DIR` env var (default `data/store`)
+- `persona_mcp_store/cli/app.py` — register `serve_http` submodule
 - `tests/unit/test_store.py` — append env-var test
 - `README.md` — append "Remote deployment" section
 
 **Create:**
-- `persona_pipeline/remote.py` — middleware + `build_app` factory
-- `persona_pipeline/cli/serve_http.py` — Typer `serve-http` command
+- `persona_mcp_store/remote.py` — middleware + `build_app` factory
+- `persona_mcp_store/cli/serve_http.py` — Typer `serve-http` command
 - `tests/unit/test_remote.py` — middleware + integration tests
 - `Dockerfile` — multi-stage build
 - `.dockerignore` — exclude data/, tests/, docs/, etc.
@@ -78,7 +78,7 @@ git commit -m "build: add starlette + uvicorn to [mcp] extra for remote transpor
 
 **Files:**
 - Test: `tests/unit/test_store.py`
-- Modify: `persona_pipeline/store.py`
+- Modify: `persona_mcp_store/store.py`
 
 - [ ] **Step 1: Append failing test**
 
@@ -102,9 +102,9 @@ def test_store_path_default_when_env_unset(monkeypatch):
 Run: `uv run pytest tests/unit/test_store.py -v -k "respects_env_var or default_when_env"`
 Expected: FAIL — `store_path` ignores the env var; first test asserts equality on a tmp path that doesn't match the hardcoded `Path("data") / "store" / ...`.
 
-- [ ] **Step 3: Modify `persona_pipeline/store.py`**
+- [ ] **Step 3: Modify `persona_mcp_store/store.py`**
 
-Open `persona_pipeline/store.py`. At the top of the file (with other stdlib imports), add `import os`. Replace the existing module-level `DATA = Path("data")` line and the `store_path` function with:
+Open `persona_mcp_store/store.py`. At the top of the file (with other stdlib imports), add `import os`. Replace the existing module-level `DATA = Path("data")` line and the `store_path` function with:
 
 ```python
 def _store_dir() -> Path:
@@ -122,7 +122,7 @@ def store_path(country: str) -> Path:
 
 `catalog_path(country)` is already defined as `store_path(country).with_suffix("").with_suffix(".catalog.json")` and inherits the env-driven behaviour automatically — no change needed.
 
-The previous `DATA = Path("data")` constant can be removed if nothing else in this file references it. Verify with: `grep -n "DATA" persona_pipeline/store.py`. If `DATA` is referenced elsewhere in the file, leave it but stop using it from `store_path`.
+The previous `DATA = Path("data")` constant can be removed if nothing else in this file references it. Verify with: `grep -n "DATA" persona_mcp_store/store.py`. If `DATA` is referenced elsewhere in the file, leave it but stop using it from `store_path`.
 
 - [ ] **Step 4: Run all store tests — expect PASS**
 
@@ -137,7 +137,7 @@ Expected: 90 + 2 new = 92/92 pass. The `cli/build.py` test path doesn't rely on 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add persona_pipeline/store.py tests/unit/test_store.py
+git add persona_mcp_store/store.py tests/unit/test_store.py
 git commit -m "feat(store): make store directory env-driven (PERSONA_STORE_DATA_DIR)"
 ```
 
@@ -147,14 +147,14 @@ git commit -m "feat(store): make store directory env-driven (PERSONA_STORE_DATA_
 
 **Files:**
 - Create: `tests/unit/test_remote.py`
-- Create: `persona_pipeline/remote.py`
+- Create: `persona_mcp_store/remote.py`
 
 - [ ] **Step 1: Create test file with failing tests**
 
 Create `tests/unit/test_remote.py`:
 
 ```python
-"""Tests for persona_pipeline.remote (ASGI middleware + build_app)."""
+"""Tests for persona_mcp_store.remote (ASGI middleware + build_app)."""
 from __future__ import annotations
 
 import pytest
@@ -164,7 +164,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from persona_pipeline import remote
+from persona_mcp_store import remote
 
 
 async def _ok(request):
@@ -193,9 +193,9 @@ def test_request_id_preserved_when_provided():
 - [ ] **Step 2: Run failing tests**
 
 Run: `uv run pytest tests/unit/test_remote.py -v`
-Expected: ImportError (`persona_pipeline.remote` does not exist).
+Expected: ImportError (`persona_mcp_store.remote` does not exist).
 
-- [ ] **Step 3: Create `persona_pipeline/remote.py`**
+- [ ] **Step 3: Create `persona_mcp_store/remote.py`**
 
 Create with the `_RequestIdMiddleware` class only (other middleware in later tasks):
 
@@ -203,7 +203,7 @@ Create with the `_RequestIdMiddleware` class only (other middleware in later tas
 """Remote-deploy concerns: ASGI app assembly with auth, rate limit, structured log.
 
 This module is *only* used by the `serve-http` CLI command. The stdio MCP server
-(`persona_pipeline.cli.serve`) does not import it.
+(`persona_mcp_store.cli.serve`) does not import it.
 """
 from __future__ import annotations
 
@@ -235,7 +235,7 @@ Expected: 2/2 pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/remote.py tests/unit/test_remote.py
+git add persona_mcp_store/remote.py tests/unit/test_remote.py
 git commit -m "feat(remote): add _RequestIdMiddleware with x-request-id propagation"
 ```
 
@@ -245,7 +245,7 @@ git commit -m "feat(remote): add _RequestIdMiddleware with x-request-id propagat
 
 **Files:**
 - Modify: `tests/unit/test_remote.py`
-- Modify: `persona_pipeline/remote.py`
+- Modify: `persona_mcp_store/remote.py`
 
 - [ ] **Step 1: Append failing tests**
 
@@ -315,7 +315,7 @@ def test_auth_exempts_health_path():
 Run: `uv run pytest tests/unit/test_remote.py -v -k "load_api_keys or auth"`
 Expected: AttributeError on `_load_api_keys` / `_AuthMiddleware`.
 
-- [ ] **Step 3: Add `_load_api_keys` and `_AuthMiddleware` to `persona_pipeline/remote.py`**
+- [ ] **Step 3: Add `_load_api_keys` and `_AuthMiddleware` to `persona_mcp_store/remote.py`**
 
 Append to the imports block at the top of `remote.py`:
 
@@ -389,7 +389,7 @@ Expected: 2 (request_id) + 8 (auth) = 10/10 pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/remote.py tests/unit/test_remote.py
+git add persona_mcp_store/remote.py tests/unit/test_remote.py
 git commit -m "feat(remote): add _AuthMiddleware with Bearer token + /health exemption"
 ```
 
@@ -399,7 +399,7 @@ git commit -m "feat(remote): add _AuthMiddleware with Bearer token + /health exe
 
 **Files:**
 - Modify: `tests/unit/test_remote.py`
-- Modify: `persona_pipeline/remote.py`
+- Modify: `persona_mcp_store/remote.py`
 
 - [ ] **Step 1: Append failing tests**
 
@@ -557,7 +557,7 @@ Expected: 10 + 4 = 14/14 pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/remote.py tests/unit/test_remote.py
+git add persona_mcp_store/remote.py tests/unit/test_remote.py
 git commit -m "feat(remote): add _RateLimitMiddleware (in-memory token bucket per key)"
 ```
 
@@ -567,7 +567,7 @@ git commit -m "feat(remote): add _RateLimitMiddleware (in-memory token bucket pe
 
 **Files:**
 - Modify: `tests/unit/test_remote.py`
-- Modify: `persona_pipeline/remote.py`
+- Modify: `persona_mcp_store/remote.py`
 
 - [ ] **Step 1: Append failing tests**
 
@@ -678,7 +678,7 @@ Expected: 14 + 2 = 16/16 pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/remote.py tests/unit/test_remote.py
+git add persona_mcp_store/remote.py tests/unit/test_remote.py
 git commit -m "feat(remote): add _StructuredLogMiddleware (JSON line per request to stderr)"
 ```
 
@@ -688,7 +688,7 @@ git commit -m "feat(remote): add _StructuredLogMiddleware (JSON line per request
 
 **Files:**
 - Modify: `tests/unit/test_remote.py`
-- Modify: `persona_pipeline/remote.py`
+- Modify: `persona_mcp_store/remote.py`
 
 - [ ] **Step 1: Append failing tests**
 
@@ -758,7 +758,7 @@ The test `test_build_app_health_reachable_without_auth` requires a fixture that 
 def korea_with_catalog_for_remote(tmp_path, monkeypatch):
     """Write a minimal Korea store + catalog under PERSONA_STORE_DATA_DIR=tmp_path."""
     import polars as pl
-    from persona_pipeline import store
+    from persona_mcp_store import store
 
     monkeypatch.setenv("PERSONA_STORE_DATA_DIR", str(tmp_path))
     rows = [
@@ -790,7 +790,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Mount, Route
 
-from persona_pipeline import store
+from persona_mcp_store import store
 ```
 
 Append to the body:
@@ -849,7 +849,7 @@ Note: counts assume the test count after Task 2 was 92 (90 baseline + 2 store en
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/remote.py tests/unit/test_remote.py
+git add persona_mcp_store/remote.py tests/unit/test_remote.py
 git commit -m "feat(remote): add build_app factory with /health route and 4-layer middleware chain"
 ```
 
@@ -858,10 +858,10 @@ git commit -m "feat(remote): add build_app factory with /health route and 4-laye
 ### Task 8: CLI — `serve-http` command
 
 **Files:**
-- Create: `persona_pipeline/cli/serve_http.py`
-- Modify: `persona_pipeline/cli/app.py`
+- Create: `persona_mcp_store/cli/serve_http.py`
+- Modify: `persona_mcp_store/cli/app.py`
 
-- [ ] **Step 1: Create `persona_pipeline/cli/serve_http.py`**
+- [ ] **Step 1: Create `persona_mcp_store/cli/serve_http.py`**
 
 ```python
 """CLI: serve-http — run the persona MCP server over streamable-http transport.
@@ -877,7 +877,7 @@ from __future__ import annotations
 
 import typer
 
-from persona_pipeline.cli.app import app
+from persona_mcp_store.cli.app import app
 
 
 @app.command(name="serve-http")
@@ -889,8 +889,8 @@ def serve_http(host: str = "0.0.0.0", port: int = 8080) -> None:
     """
     import uvicorn
 
-    from persona_pipeline.mcp_server import mcp
-    from persona_pipeline.remote import build_app
+    from persona_mcp_store.mcp_server import mcp
+    from persona_mcp_store.remote import build_app
 
     asgi_app = build_app(mcp)
     typer.echo(
@@ -902,25 +902,25 @@ def serve_http(host: str = "0.0.0.0", port: int = 8080) -> None:
 
 - [ ] **Step 2: Register the new command in `cli/app.py`**
 
-Open `persona_pipeline/cli/app.py`. Append `from persona_pipeline.cli import serve_http` to the existing import block (alongside `download`, `classify_occupation`, `build`, `serve`). Final state:
+Open `persona_mcp_store/cli/app.py`. Append `from persona_mcp_store.cli import serve_http` to the existing import block (alongside `download`, `classify_occupation`, `build`, `serve`). Final state:
 
 ```python
 import typer
 
 app = typer.Typer(help="Persona pipeline: build the per-country store and serve it over MCP.")
 
-from persona_pipeline.cli import download  # noqa: F401, E402
-from persona_pipeline.cli import classify_occupation  # noqa: F401, E402
-from persona_pipeline.cli import build  # noqa: F401, E402
-from persona_pipeline.cli import serve  # noqa: F401, E402
-from persona_pipeline.cli import serve_http  # noqa: F401, E402
+from persona_mcp_store.cli import download  # noqa: F401, E402
+from persona_mcp_store.cli import classify_occupation  # noqa: F401, E402
+from persona_mcp_store.cli import build  # noqa: F401, E402
+from persona_mcp_store.cli import serve  # noqa: F401, E402
+from persona_mcp_store.cli import serve_http  # noqa: F401, E402
 ```
 
 - [ ] **Step 3: Smoke check — CLI parses with new command**
 
 Run:
 ```bash
-uv run python -c "from persona_pipeline.cli.app import app; app(['--help'], standalone_mode=False)"
+uv run python -c "from persona_mcp_store.cli.app import app; app(['--help'], standalone_mode=False)"
 ```
 Expected: help text lists 5 commands: `download`, `classify-occupation`, `build`, `serve`, `serve-http`.
 
@@ -932,7 +932,7 @@ unset PERSONA_STORE_API_KEYS
 uv run python -c "
 import os
 os.environ.pop('PERSONA_STORE_API_KEYS', None)
-from persona_pipeline.cli.app import app
+from persona_mcp_store.cli.app import app
 try:
     app(['serve-http', '--port', '0'], standalone_mode=False)
 except RuntimeError as e:
@@ -949,7 +949,7 @@ Expected: same count as after Task 7 (97/97 typically), all pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add persona_pipeline/cli/serve_http.py persona_pipeline/cli/app.py
+git add persona_mcp_store/cli/serve_http.py persona_mcp_store/cli/app.py
 git commit -m "feat(cli): add serve-http command (streamable-http transport)"
 ```
 
@@ -1010,7 +1010,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --extra mcp --no-dev --no-install-project
 
 # Now bring in the package source and finalize
-COPY persona_pipeline persona_pipeline
+COPY persona_mcp_store persona_mcp_store
 RUN uv sync --frozen --extra mcp --no-dev
 
 
@@ -1030,12 +1030,12 @@ EXPOSE 8080
 
 # Default entrypoint runs the streamable-http server on 0.0.0.0:8080.
 # Operator must mount a directory at /data and supply PERSONA_STORE_API_KEYS.
-ENTRYPOINT ["python", "-m", "persona_pipeline.cli", "serve-http"]
+ENTRYPOINT ["python", "-m", "persona_mcp_store.cli", "serve-http"]
 CMD ["--host", "0.0.0.0", "--port", "8080"]
 ```
 
 Notes:
-- `python -m persona_pipeline.cli` resolves to `persona_pipeline/cli/__main__.py` (which exists from initial migration).
+- `python -m persona_mcp_store.cli` resolves to `persona_mcp_store/cli/__main__.py` (which exists from initial migration).
 - `EXPOSE 8080` is documentation; the operator publishes the port via `-p` or compose.
 - `USER app` (uid 1000) keeps the process unprivileged.
 
@@ -1117,7 +1117,7 @@ For team-internal or remote LLM clients, run the server over streamable-http:
 
 ```bash
 export PERSONA_STORE_API_KEYS="$(openssl rand -hex 32)"
-uv run persona-pipeline serve-http --host 0.0.0.0 --port 8080
+uv run persona-mcp-store serve-http --host 0.0.0.0 --port 8080
 ```
 
 Connect from an MCP-aware client by registering:

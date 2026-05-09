@@ -1,4 +1,4 @@
-# persona-pipeline
+# persona-mcp-store
 
 Multi-country raw-persona MCP server over Nemotron-Personas (USA / Japan / India / Singapore / Brazil / France / Korea, ~1M personas each). LLM clients query the server to fetch raw personas filtered by demographic axes.
 
@@ -41,7 +41,7 @@ For team-internal or remote LLM clients, run the server over streamable-http:
 
 ```bash
 export PERSONA_STORE_API_KEYS="$(openssl rand -hex 32)"
-uv run persona-pipeline serve-http --host 0.0.0.0 --port 8080
+uv run persona-mcp-store serve-http --host 0.0.0.0 --port 8080
 ```
 
 Connect from an MCP-aware client by registering:
@@ -106,7 +106,7 @@ server {
 
 ## Country mappings
 
-`persona_pipeline/mappings/{korea,japan,...}.py` — per-country rules in a `CountryMappings` dataclass:
+`persona_mcp_store/mappings/{korea,japan,...}.py` — per-country rules in a `CountryMappings` dataclass:
 - `axes`: which demographic axes the store carries (Singapore has no region → 3 axes)
 - `region_source_col` + `region_map`: native administrative division → regional grouping
 - `occupation_group_definitions`: label → description fed to the classifier (Korea/Japan/USA/India). Singapore/Brazil/France use the dataset's native category column.
@@ -114,7 +114,7 @@ server {
 ## Layout
 
 ```
-persona_pipeline/
+persona_mcp_store/
 ├── _config.py              constants (ROW_GROUP_SIZE)
 ├── mappings/               per-country rules + axis name constants
 ├── stages/

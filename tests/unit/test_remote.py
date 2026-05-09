@@ -1,4 +1,4 @@
-"""Tests for persona_pipeline.remote (ASGI middleware + build_app)."""
+"""Tests for persona_mcp_store.remote (ASGI middleware + build_app)."""
 from __future__ import annotations
 
 import json as _json
@@ -12,7 +12,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from persona_pipeline import remote
+from persona_mcp_store import remote
 
 
 async def _ok(request):
@@ -231,7 +231,7 @@ def test_structured_log_includes_token_id_when_attached(capsys):
 def korea_with_catalog_for_remote(tmp_path, monkeypatch):
     """Write a minimal Korea store + catalog under PERSONA_STORE_DATA_DIR=tmp_path."""
     import polars as pl
-    from persona_pipeline import store
+    from persona_mcp_store import store
 
     monkeypatch.setenv("PERSONA_STORE_DATA_DIR", str(tmp_path))
     rows = [

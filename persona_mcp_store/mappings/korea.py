@@ -1,5 +1,5 @@
 """Korea — KSCO 9-group occupation, 6 regions, Korean labels."""
-from persona_pipeline.mappings._base import (
+from persona_mcp_store.mappings._base import (
     CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
 )
 

@@ -11,8 +11,8 @@ from typing import cast
 import polars as pl
 from datasets import load_dataset
 
-from persona_pipeline._config import ROW_GROUP_SIZE
-from persona_pipeline.mappings import get_mappings
+from persona_mcp_store._config import ROW_GROUP_SIZE
+from persona_mcp_store.mappings import get_mappings
 
 
 @contextmanager

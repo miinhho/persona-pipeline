@@ -13,9 +13,9 @@
 ## File Structure
 
 **Modify:**
-- `persona_pipeline/store.py` — append `catalog_path`, `write_catalog`, `load_catalog` helpers
-- `persona_pipeline/cli/build.py` — call `store.write_catalog(country)` after `sink_parquet`
-- `persona_pipeline/mcp_server.py` — `_observe` context manager, `_validate_axis_names` helper, `ctx: Context | None = None` and `Annotated[..., Field(...)]` on all four tools, two new `@mcp.resource` handlers
+- `persona_mcp_store/store.py` — append `catalog_path`, `write_catalog`, `load_catalog` helpers
+- `persona_mcp_store/cli/build.py` — call `store.write_catalog(country)` after `sink_parquet`
+- `persona_mcp_store/mcp_server.py` — `_observe` context manager, `_validate_axis_names` helper, `ctx: Context | None = None` and `Annotated[..., Field(...)]` on all four tools, two new `@mcp.resource` handlers
 - `tests/unit/test_store.py` — append catalog tests
 - `tests/unit/test_mcp_server.py` — append observability / error UX / resource tests
 
@@ -32,7 +32,7 @@
 
 **Files:**
 - Test: `tests/unit/test_store.py`
-- Modify: `persona_pipeline/store.py`
+- Modify: `persona_mcp_store/store.py`
 
 - [ ] **Step 1: Append failing tests**
 
@@ -84,13 +84,13 @@ Expected: AttributeError (no `catalog_path` / `write_catalog` / `load_catalog` i
 
 - [ ] **Step 3: Implement helpers**
 
-Append to `persona_pipeline/store.py`:
+Append to `persona_mcp_store/store.py`:
 
 ```python
 import json
 from datetime import datetime, timezone
 
-from persona_pipeline.mappings import get_mappings
+from persona_mcp_store.mappings import get_mappings
 
 
 def catalog_path(country: str) -> Path:
@@ -149,7 +149,7 @@ Expected: 4 new + 17 existing = 21/21 pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/store.py tests/unit/test_store.py
+git add persona_mcp_store/store.py tests/unit/test_store.py
 git commit -m "feat(store): add catalog sidecar helpers (path / write / load)"
 ```
 
@@ -158,13 +158,13 @@ git commit -m "feat(store): add catalog sidecar helpers (path / write / load)"
 ### Task 2: cli/build.py — wire write_catalog
 
 **Files:**
-- Modify: `persona_pipeline/cli/build.py`
+- Modify: `persona_mcp_store/cli/build.py`
 
 This task has no unit test (the catalog logic is fully tested in Task 1; here we only wire the call). End-to-end smoke runs in Task 7.
 
 - [ ] **Step 1: Modify `cli/build.py` to call `store.write_catalog`**
 
-Open `persona_pipeline/cli/build.py`. Add `from persona_pipeline import store` at the top of the imports (alongside the existing `from persona_pipeline import io as io_mod`). Then inside the `build` function, after the `n_rows = ...` computation and the existing `typer.echo` line, append two lines that write the catalog sidecar and report it.
+Open `persona_mcp_store/cli/build.py`. Add `from persona_mcp_store import store` at the top of the imports (alongside the existing `from persona_mcp_store import io as io_mod`). Then inside the `build` function, after the `n_rows = ...` computation and the existing `typer.echo` line, append two lines that write the catalog sidecar and report it.
 
 Final body (replace the entire function):
 
@@ -174,14 +174,14 @@ from __future__ import annotations
 import polars as pl
 import typer
 
-from persona_pipeline import io as io_mod, store
-from persona_pipeline.cli._paths import (
+from persona_mcp_store import io as io_mod, store
+from persona_mcp_store.cli._paths import (
     occupation_lookup_path, raw_path,
 )
-from persona_pipeline.cli.app import app
-from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.enrich import enrich
-from persona_pipeline.store import store_path
+from persona_mcp_store.cli.app import app
+from persona_mcp_store.mappings import get_mappings
+from persona_mcp_store.stages.enrich import enrich
+from persona_mcp_store.store import store_path
 
 
 @app.command()
@@ -215,11 +215,11 @@ def build(country: str) -> None:
     typer.echo(f"catalog[{country}] → {catalog_out}")
 ```
 
-Note: `from persona_pipeline.store import store_path` replaces `from persona_pipeline.cli._paths import store_path` (already removed in P1 cleanup; verify the existing build.py imports `store_path` from the right place — it should be `persona_pipeline.store`, not `cli._paths`).
+Note: `from persona_mcp_store.store import store_path` replaces `from persona_mcp_store.cli._paths import store_path` (already removed in P1 cleanup; verify the existing build.py imports `store_path` from the right place — it should be `persona_mcp_store.store`, not `cli._paths`).
 
 - [ ] **Step 2: Smoke check — module imports cleanly**
 
-Run: `uv run python -c "from persona_pipeline.cli import build as b; print('build import ok')"`
+Run: `uv run python -c "from persona_mcp_store.cli import build as b; print('build import ok')"`
 Expected: `build import ok`.
 
 - [ ] **Step 3: Smoke check — full test suite still green**
@@ -230,7 +230,7 @@ Expected: same count as after Task 1 (21 store tests + others), all pass.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add persona_pipeline/cli/build.py
+git add persona_mcp_store/cli/build.py
 git commit -m "feat(cli): write catalog sidecar at end of build"
 ```
 
@@ -240,7 +240,7 @@ git commit -m "feat(cli): write catalog sidecar at end of build"
 
 **Files:**
 - Test: `tests/unit/test_mcp_server.py`
-- Modify: `persona_pipeline/mcp_server.py`
+- Modify: `persona_mcp_store/mcp_server.py`
 
 - [ ] **Step 1: Append failing tests**
 
@@ -250,7 +250,7 @@ Append to `tests/unit/test_mcp_server.py`:
 from unittest.mock import MagicMock
 from mcp.server.fastmcp.exceptions import ToolError as _ToolError
 
-from persona_pipeline.mcp_server import _observe as _observe_for_test  # noqa: E402
+from persona_mcp_store.mcp_server import _observe as _observe_for_test  # noqa: E402
 
 
 def test_observe_logs_start_and_finish_when_ctx_provided():
@@ -296,7 +296,7 @@ Expected: ImportError on `_observe` (not yet defined).
 
 - [ ] **Step 3: Implement `_observe`**
 
-Add to `persona_pipeline/mcp_server.py` near the top (after imports, before the existing `_axes_filter` helper):
+Add to `persona_mcp_store/mcp_server.py` near the top (after imports, before the existing `_axes_filter` helper):
 
 ```python
 from contextlib import contextmanager
@@ -341,7 +341,7 @@ Expected: 4/4 pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/mcp_server.py tests/unit/test_mcp_server.py
+git add persona_mcp_store/mcp_server.py tests/unit/test_mcp_server.py
 git commit -m "feat(mcp): add _observe context manager for tool call logging"
 ```
 
@@ -351,14 +351,14 @@ git commit -m "feat(mcp): add _observe context manager for tool call logging"
 
 **Files:**
 - Test: `tests/unit/test_mcp_server.py`
-- Modify: `persona_pipeline/mcp_server.py`
+- Modify: `persona_mcp_store/mcp_server.py`
 
 - [ ] **Step 1: Append failing tests**
 
 Append to `tests/unit/test_mcp_server.py`:
 
 ```python
-from persona_pipeline.mcp_server import _validate_axis_names as _validate_for_test  # noqa: E402
+from persona_mcp_store.mcp_server import _validate_axis_names as _validate_for_test  # noqa: E402
 
 
 def test_validate_axis_names_passes_when_all_valid():
@@ -393,7 +393,7 @@ Expected: ImportError on `_validate_axis_names`.
 
 - [ ] **Step 3: Implement `_validate_axis_names`**
 
-Add to `persona_pipeline/mcp_server.py` next to `_validate_country`:
+Add to `persona_mcp_store/mcp_server.py` next to `_validate_country`:
 
 ```python
 from collections.abc import Iterable
@@ -425,7 +425,7 @@ Expected: 3/3 pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/mcp_server.py tests/unit/test_mcp_server.py
+git add persona_mcp_store/mcp_server.py tests/unit/test_mcp_server.py
 git commit -m "feat(mcp): add _validate_axis_names helper with catalog URI hint"
 ```
 
@@ -435,7 +435,7 @@ git commit -m "feat(mcp): add _validate_axis_names helper with catalog URI hint"
 
 **Files:**
 - Test: `tests/unit/test_mcp_server.py`
-- Modify: `persona_pipeline/mcp_server.py`
+- Modify: `persona_mcp_store/mcp_server.py`
 
 This task rewrites the four `@mcp.tool()` functions in one shot. We add tests for the new behavior first (RED), then rewrite the tools (GREEN).
 
@@ -488,14 +488,14 @@ Expected: failures — `ctx` is not yet a tool parameter, no warning is logged o
 
 - [ ] **Step 3: Rewrite the four tools**
 
-Replace the four tool functions in `persona_pipeline/mcp_server.py` with the versions below. Keep the existing module-level imports / helpers (`mcp`, `_axes_filter`, `_validate_country`, `_validate_axis_names`, `_observe`) intact and add the `Annotated` / `Field` imports if not present.
+Replace the four tool functions in `persona_mcp_store/mcp_server.py` with the versions below. Keep the existing module-level imports / helpers (`mcp`, `_axes_filter`, `_validate_country`, `_validate_axis_names`, `_observe`) intact and add the `Annotated` / `Field` imports if not present.
 
 Imports at top of file (consolidate; final form):
 
 ```python
 """MCP server exposing the persona store to LLM clients.
 
-Run with: `python -m persona_pipeline.mcp_server` (stdio transport).
+Run with: `python -m persona_mcp_store.mcp_server` (stdio transport).
 """
 from __future__ import annotations
 
@@ -508,8 +508,8 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import Field
 
-from persona_pipeline import store
-from persona_pipeline.mappings import get_mappings
+from persona_mcp_store import store
+from persona_mcp_store.mappings import get_mappings
 
 mcp = FastMCP("persona-store")
 ```
@@ -661,7 +661,7 @@ Expected: previous total + 4 new = all green. Existing tests like `test_sample_p
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/mcp_server.py tests/unit/test_mcp_server.py
+git add persona_mcp_store/mcp_server.py tests/unit/test_mcp_server.py
 git commit -m "feat(mcp): add Context logging, Field guidance, and axis-name validation to tools"
 ```
 
@@ -671,7 +671,7 @@ git commit -m "feat(mcp): add Context logging, Field guidance, and axis-name val
 
 **Files:**
 - Test: `tests/unit/test_mcp_server.py`
-- Modify: `persona_pipeline/mcp_server.py`
+- Modify: `persona_mcp_store/mcp_server.py`
 
 - [ ] **Step 1: Append failing tests**
 
@@ -724,7 +724,7 @@ Expected: AttributeError (`mcp_server.catalog` / `mcp_server.country_catalog` no
 
 - [ ] **Step 3: Implement resources**
 
-Append to `persona_pipeline/mcp_server.py`:
+Append to `persona_mcp_store/mcp_server.py`:
 
 ```python
 import json
@@ -780,7 +780,7 @@ Expected: 4/4 pass. Then full suite: `uv run pytest tests/ -v` — all green.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/mcp_server.py tests/unit/test_mcp_server.py
+git add persona_mcp_store/mcp_server.py tests/unit/test_mcp_server.py
 git commit -m "feat(mcp): expose catalog and country_catalog as MCP resources"
 ```
 
@@ -822,7 +822,7 @@ Expected: country=Korea, n_personas=1000000, four axes (region, age_gen, sex, oc
 Run:
 ```bash
 uv run python -c "
-from persona_pipeline import mcp_server
+from persona_mcp_store import mcp_server
 import json
 print('--- catalog() ---')
 print(mcp_server.catalog())
@@ -841,7 +841,7 @@ Run:
 ```bash
 uv run python -c "
 from unittest.mock import MagicMock
-from persona_pipeline import mcp_server
+from persona_mcp_store import mcp_server
 ctx = MagicMock()
 out = mcp_server.sample_personas(country='Korea', n=2, region=['수도권'], age_gen=['청년'], sex=['여자'], occupation_group=['사무'], ctx=ctx)
 print('rows:', len(out))
@@ -855,7 +855,7 @@ Expected: 2 rows, two `info` log lines (start with params, finish with `done in 
 
 - [ ] **Step 5: MCP server starts cleanly**
 
-Run: `timeout 2 uv run python -m persona_pipeline.mcp_server || true`
+Run: `timeout 2 uv run python -m persona_mcp_store.mcp_server || true`
 Expected: process starts, blocks on stdin, killed by 2s timeout. No stack traces.
 
 - [ ] **Step 6: Full test suite final check**
@@ -873,7 +873,7 @@ Verification only. If any step fails, diagnose and add a fix commit; otherwise n
 
 - **TDD discipline:** every helper-creating task writes the test first, runs it red, then implements. Don't skip the red step — it confirms the test actually exercises the new code.
 - **Frequent commits:** each task ends with one commit. If a task spans multiple commits (e.g. fixing test fallout), commit each cleanly. Don't squash.
-- **Single-source `store_path`:** `cli/build.py` must import `store_path` from `persona_pipeline.store`, not `cli/_paths` (already cleaned up in P1). Don't reintroduce a duplicate.
+- **Single-source `store_path`:** `cli/build.py` must import `store_path` from `persona_mcp_store.store`, not `cli/_paths` (already cleaned up in P1). Don't reintroduce a duplicate.
 - **`Annotated[..., Field(...)]` pattern:** required for FastMCP 1.27 + Pydantic 2 to attach descriptions and integer bounds to the JSON schema. Without `Annotated`, `Field()` as a default value also works but the `Annotated` form survives static analysis better and keeps the actual default in the `=` position.
 - **Resource handler exception:** unlike tools, MCP resource handlers cannot raise `ToolError` (that's a tool-only protocol error). Use plain `ValueError` — FastMCP forwards it as a resources/read error.
 - **Backward compatibility:** all existing tests (P1 + initial migration) must continue to pass without modification. The new `ctx` parameter is optional; existing calls don't pass it. If a test breaks, the change is wrong — don't update the test, fix the code.

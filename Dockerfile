@@ -11,7 +11,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --extra mcp --no-dev --no-install-project
 
 # Now bring in the package source and finalize
-COPY persona_pipeline persona_pipeline
+COPY persona_mcp_store persona_mcp_store
 RUN uv sync --frozen --extra mcp --no-dev
 
 
@@ -31,5 +31,5 @@ EXPOSE 8080
 
 # Default entrypoint runs the streamable-http server on 0.0.0.0:8080.
 # Operator must mount a directory at /data and supply PERSONA_STORE_API_KEYS.
-ENTRYPOINT ["python", "-m", "persona_pipeline.cli", "serve-http"]
+ENTRYPOINT ["python", "-m", "persona_mcp_store.cli", "serve-http"]
 CMD ["--host", "0.0.0.0", "--port", "8080"]

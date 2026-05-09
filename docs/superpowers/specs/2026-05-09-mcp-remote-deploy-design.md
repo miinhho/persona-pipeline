@@ -80,13 +80,13 @@ HTTPS clients ──────►  │  - TLS termination           │
 
 ### 1. CLI: new `serve-http` command
 
-`persona_pipeline/cli/serve_http.py` (new):
+`persona_mcp_store/cli/serve_http.py` (new):
 
 ```python
 import os
 import typer
 
-from persona_pipeline.cli.app import app
+from persona_mcp_store.cli.app import app
 
 
 @app.command(name="serve-http")
@@ -102,8 +102,8 @@ def serve_http(
       PERSONA_STORE_RATE_LIMIT - requests per minute per token (default: 60)
       LOG_LEVEL               - info | debug | warning (default: info)
     """
-    from persona_pipeline.mcp_server import mcp
-    from persona_pipeline.remote import build_app
+    from persona_mcp_store.mcp_server import mcp
+    from persona_mcp_store.remote import build_app
     import uvicorn
 
     asgi_app = build_app(mcp)
@@ -112,7 +112,7 @@ def serve_http(
 
 The existing `serve` (stdio) stays untouched.
 
-### 2. New module: `persona_pipeline/remote.py`
+### 2. New module: `persona_mcp_store/remote.py`
 
 Wraps FastMCP's streamable-http app with auth + rate limit + logging middleware. Exposes a single factory `build_app(mcp) -> ASGI app`.
 
@@ -136,7 +136,7 @@ from starlette.routing import Mount, Route
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from persona_pipeline import store
+from persona_mcp_store import store
 
 
 def _load_api_keys() -> set[str]:
@@ -305,7 +305,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /usr/local/bin/
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --extra mcp --no-dev --no-install-project
-COPY persona_pipeline persona_pipeline
+COPY persona_mcp_store persona_mcp_store
 COPY README.md ./
 RUN uv sync --frozen --extra mcp --no-dev
 
@@ -317,7 +317,7 @@ USER app
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PERSONA_STORE_DATA_DIR=/data
 EXPOSE 8080
-ENTRYPOINT ["python", "-m", "persona_pipeline.cli", "serve-http"]
+ENTRYPOINT ["python", "-m", "persona_mcp_store.cli", "serve-http"]
 ```
 
 Final image expected ~200–300 MB (slim base + polars wheels). Data is NOT copied — operator mounts host directory to `/data:ro`.
@@ -377,7 +377,7 @@ No new `tests/integration/` directory in v1 — Starlette's TestClient gives suf
    6. `pyproject.toml`: add `starlette`, `uvicorn` to `[mcp]` extra (FastMCP transitively pulls these but pin explicitly) + 1 commit
    7. `README.md` deployment section + 1 commit
 4. validation:
-   - local: `make build COUNTRY=Korea` then `PERSONA_STORE_API_KEYS=test1,test2 uv run persona-pipeline serve-http`. `curl http://localhost:8080/health` returns 200, MCP path returns 401 without auth, succeeds with `Authorization: Bearer test1`.
+   - local: `make build COUNTRY=Korea` then `PERSONA_STORE_API_KEYS=test1,test2 uv run persona-mcp-store serve-http`. `curl http://localhost:8080/health` returns 200, MCP path returns 401 without auth, succeeds with `Authorization: Bearer test1`.
    - container: `docker compose up`, same checks against the published port.
    - rate limit: 61 calls in 60s — 61st returns 429 with retry-after.
    - load test: 10 parallel clients, 1M-row sample queries — verify no crash, log line per request.
@@ -413,7 +413,7 @@ No new `tests/integration/` directory in v1 — Starlette's TestClient gives suf
 
 ## Success criteria
 
-1. `uv run persona-pipeline serve-http` (with `PERSONA_STORE_API_KEYS=test`) starts uvicorn on `:8080` without error.
+1. `uv run persona-mcp-store serve-http` (with `PERSONA_STORE_API_KEYS=test`) starts uvicorn on `:8080` without error.
 2. `GET /health` returns `200 {"status":"ok","stores":[...]}` without auth.
 3. `POST /mcp` (or whatever streamable-http path FastMCP uses) without `Authorization` returns `401`.
 4. Same path with `Authorization: Bearer test` succeeds.

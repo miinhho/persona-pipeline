@@ -102,7 +102,7 @@ family_persona: str
 
 ### 2. Enrich pipeline (재정리)
 
-기존 `persona_pipeline/stages/enrich.py` + `classify_occupation.py`를 새 store output으로 정리.
+기존 `persona_mcp_store/stages/enrich.py` + `classify_occupation.py`를 새 store output으로 정리.
 
 **Flow**:
 ```python
@@ -182,7 +182,7 @@ Anthropic 공식 `mcp` Python SDK 사용. FastMCP 스타일 (decorator 기반).
 
 ```python
 from mcp.server.fastmcp import FastMCP
-from persona_pipeline import store
+from persona_mcp_store import store
 
 mcp = FastMCP("persona-store")
 
@@ -260,7 +260,7 @@ if __name__ == "__main__":
 ### 5. CLI (재정리)
 
 ```
-persona_pipeline/cli/
+persona_mcp_store/cli/
 ├── app.py                          (Typer app)
 ├── _paths.py                       (raw_path, store_path, occupation_lookup_path)
 ├── build.py                        ← 새: download + classify-occupation + write store

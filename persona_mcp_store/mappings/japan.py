@@ -1,5 +1,5 @@
 """Japan — native region column (8 areas), JSOC 11-group, 男/女, no family_persona column."""
-from persona_pipeline.mappings._base import (
+from persona_mcp_store.mappings._base import (
     CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
 )
 

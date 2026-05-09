@@ -1,6 +1,6 @@
 """MCP server exposing the persona store to LLM clients.
 
-Run with: `python -m persona_pipeline.mcp_server` (stdio transport).
+Run with: `python -m persona_mcp_store.mcp_server` (stdio transport).
 """
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import Field
 
-from persona_pipeline import store
-from persona_pipeline.mappings import get_mappings
+from persona_mcp_store import store
+from persona_mcp_store.mappings import get_mappings
 
 mcp = FastMCP("persona-store")
 

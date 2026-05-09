@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import typer
 
-from persona_pipeline.cli.app import app
+from persona_mcp_store.cli.app import app
 
 
 @app.command(name="serve-http")
@@ -23,8 +23,8 @@ def serve_http(host: str = "0.0.0.0", port: int = 8080) -> None:
     """
     import uvicorn
 
-    from persona_pipeline.mcp_server import mcp
-    from persona_pipeline.remote import build_app
+    from persona_mcp_store.mcp_server import mcp
+    from persona_mcp_store.remote import build_app
 
     asgi_app = build_app(mcp)
     typer.echo(

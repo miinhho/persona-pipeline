@@ -13,21 +13,21 @@
 ## File Structure
 
 **Create:**
-- `persona_pipeline/store.py` — query helpers (`load`, `sample`, `distribution`, `get`, `search`)
-- `persona_pipeline/mcp_server.py` — FastMCP server, four `@mcp.tool()` definitions wrapping store
-- `persona_pipeline/cli/build.py` — `build {country}` command (download + classify + enrich → store)
-- `persona_pipeline/cli/serve.py` — `serve` command (run MCP server over stdio)
+- `persona_mcp_store/store.py` — query helpers (`load`, `sample`, `distribution`, `get`, `search`)
+- `persona_mcp_store/mcp_server.py` — FastMCP server, four `@mcp.tool()` definitions wrapping store
+- `persona_mcp_store/cli/build.py` — `build {country}` command (download + classify + enrich → store)
+- `persona_mcp_store/cli/serve.py` — `serve` command (run MCP server over stdio)
 - `tests/unit/test_store.py` — store helper tests
 - `tests/unit/test_mcp_server.py` — tool dispatch tests via mock store
 
 **Modify:**
-- `persona_pipeline/stages/enrich.py` — output = raw + axes + country, sorted; remove SEGMENT_KEY column
-- `persona_pipeline/mappings/_base.py` — remove `SEGMENT_ID`, `SEGMENT_KEY`, `SEGMENT_SEP`, `backoff_axes`, `parse_segment`
-- `persona_pipeline/mappings/__init__.py` — drop removed exports
-- `persona_pipeline/cli/_paths.py` — add `store_path`; remove `enriched_path`, `partitioned_path`, `archetypes_path`, `simulations_path`, `cache_dir`
-- `persona_pipeline/cli/app.py` — register only `download`, `classify-occupation`, `build`, `serve`
-- `persona_pipeline/_config.py` — drop archetype/sample/backoff constants; keep `ROW_GROUP_SIZE`
-- `persona_pipeline/validate.py` — drop `validate_partitioned`; keep raw-schema sanity checks
+- `persona_mcp_store/stages/enrich.py` — output = raw + axes + country, sorted; remove SEGMENT_KEY column
+- `persona_mcp_store/mappings/_base.py` — remove `SEGMENT_ID`, `SEGMENT_KEY`, `SEGMENT_SEP`, `backoff_axes`, `parse_segment`
+- `persona_mcp_store/mappings/__init__.py` — drop removed exports
+- `persona_mcp_store/cli/_paths.py` — add `store_path`; remove `enriched_path`, `partitioned_path`, `archetypes_path`, `simulations_path`, `cache_dir`
+- `persona_mcp_store/cli/app.py` — register only `download`, `classify-occupation`, `build`, `serve`
+- `persona_mcp_store/_config.py` — drop archetype/sample/backoff constants; keep `ROW_GROUP_SIZE`
+- `persona_mcp_store/validate.py` — drop `validate_partitioned`; keep raw-schema sanity checks
 - `tests/unit/test_enrich.py` — adapt to new store schema
 - `tests/unit/test_mappings.py` — drop any `parse_segment` test if present
 - `pyproject.toml` — replace `[sim]` extra with `[mcp]`
@@ -36,8 +36,8 @@
 - `.gitignore` — add `data/store/`
 
 **Delete:**
-- `persona_pipeline/stages/{partition,archetype,match,simulate}.py`
-- `persona_pipeline/cli/{archetype,match,simulate,stages}.py`
+- `persona_mcp_store/stages/{partition,archetype,match,simulate}.py`
+- `persona_mcp_store/cli/{archetype,match,simulate,stages}.py`
 - `tests/unit/{test_partition,test_match,test_workflow,test_simulate,test_validate}.py`
 - `data/{archetypes,cache,simulations}/`
 - `scripts/simulate_poc.py`, `scripts/diagnose_occupation.py`
@@ -80,12 +80,12 @@ git commit -m "build: switch [sim] extra to [mcp] (mcp + anthropic SDKs)"
 ### Task 2: Strip segment-id machinery from mappings module
 
 **Files:**
-- Modify: `persona_pipeline/mappings/_base.py`
-- Modify: `persona_pipeline/mappings/__init__.py`
+- Modify: `persona_mcp_store/mappings/_base.py`
+- Modify: `persona_mcp_store/mappings/__init__.py`
 
 - [ ] **Step 1: Remove segment-id symbols from `_base.py`**
 
-In `persona_pipeline/mappings/_base.py`, delete these definitions:
+In `persona_mcp_store/mappings/_base.py`, delete these definitions:
 - `SEGMENT_ID = "segment_id"`
 - `SEGMENT_KEY = "segment_key"`
 - `SEGMENT_SEP = "|"`
@@ -96,22 +96,22 @@ Preserve `REGION`, `AGE_GEN`, `SEX`, `OCCUPATION_GROUP`, `UUID`, `AGE`, `HOBBIES
 
 - [ ] **Step 2: Remove dropped names from `mappings/__init__.py`**
 
-Edit `persona_pipeline/mappings/__init__.py`:
-- Drop `SEGMENT_ID`, `SEGMENT_KEY`, `SEGMENT_SEP`, `backoff_axes`, `parse_segment` from the `from persona_pipeline.mappings._base import (...)` import block.
+Edit `persona_mcp_store/mappings/__init__.py`:
+- Drop `SEGMENT_ID`, `SEGMENT_KEY`, `SEGMENT_SEP`, `backoff_axes`, `parse_segment` from the `from persona_mcp_store.mappings._base import (...)` import block.
 - Drop the same names from `__all__`.
 
 - [ ] **Step 3: Verify only soon-to-delete files reference them**
 
 Run:
 ```bash
-grep -rn "SEGMENT_ID\|SEGMENT_KEY\|SEGMENT_SEP\|backoff_axes\|parse_segment" persona_pipeline tests scripts 2>/dev/null
+grep -rn "SEGMENT_ID\|SEGMENT_KEY\|SEGMENT_SEP\|backoff_axes\|parse_segment" persona_mcp_store tests scripts 2>/dev/null
 ```
 Expected: matches only inside `stages/{partition,archetype,match,simulate}.py`, `cli/{stages,match,simulate,archetype}.py`, `tests/unit/{test_partition,test_match,test_workflow,test_simulate,test_validate}.py`, `validate.py`, `scripts/*` — all of which Task 10 deletes or Task 9 modifies. Importantly, `enrich.py` should no longer match after Task 3.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add persona_pipeline/mappings/_base.py persona_pipeline/mappings/__init__.py
+git add persona_mcp_store/mappings/_base.py persona_mcp_store/mappings/__init__.py
 git commit -m "refactor(mappings): drop segment-id constants and helpers"
 ```
 
@@ -121,7 +121,7 @@ git commit -m "refactor(mappings): drop segment-id constants and helpers"
 
 **Files:**
 - Test: `tests/unit/test_enrich.py`
-- Modify: `persona_pipeline/stages/enrich.py`
+- Modify: `persona_mcp_store/stages/enrich.py`
 
 - [ ] **Step 1: Replace `tests/unit/test_enrich.py` with the new schema test**
 
@@ -130,8 +130,8 @@ Overwrite the file with:
 ```python
 import polars as pl
 
-from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.enrich import enrich
+from persona_mcp_store.mappings import get_mappings
+from persona_mcp_store.stages.enrich import enrich
 
 KOREA = get_mappings("Korea")
 PERSONA_TEXT_COLS = list(KOREA.persona_columns.keys())  # 7 fields for Korea
@@ -202,7 +202,7 @@ def test_enrich_sorted_by_axes():
 Run: `uv run pytest tests/unit/test_enrich.py -v`
 Expected: FAIL — current `enrich.py` selects only `[UUID, AGE, *axes, SEGMENT_KEY]`, dropping raw text.
 
-- [ ] **Step 3: Rewrite `persona_pipeline/stages/enrich.py`**
+- [ ] **Step 3: Rewrite `persona_mcp_store/stages/enrich.py`**
 
 Overwrite the file with:
 
@@ -220,7 +220,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from persona_pipeline.mappings import (
+from persona_mcp_store.mappings import (
     AGE, AGE_GEN, AGE_GEN_BOUNDS, CountryMappings, HOBBIES_COL,
     OCCUPATION_GROUP, REGION, SEX, UUID,
 )
@@ -337,7 +337,7 @@ Expected: 5/5 PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/stages/enrich.py tests/unit/test_enrich.py
+git add persona_mcp_store/stages/enrich.py tests/unit/test_enrich.py
 git commit -m "refactor(enrich): emit store-shaped frame (raw + axes + country, sorted)"
 ```
 
@@ -347,7 +347,7 @@ git commit -m "refactor(enrich): emit store-shaped frame (raw + axes + country, 
 
 **Files:**
 - Test: `tests/unit/test_store.py`
-- Create: `persona_pipeline/store.py`
+- Create: `persona_mcp_store/store.py`
 
 - [ ] **Step 1: Write failing tests**
 
@@ -357,7 +357,7 @@ Create `tests/unit/test_store.py`:
 import polars as pl
 import pytest
 
-from persona_pipeline import store
+from persona_mcp_store import store
 
 
 @pytest.fixture
@@ -433,11 +433,11 @@ def test_sample_caps_at_population_when_n_exceeds(korea_store):
 - [ ] **Step 2: Run tests — expect FAIL**
 
 Run: `uv run pytest tests/unit/test_store.py -v`
-Expected: ImportError (no module `persona_pipeline.store` yet).
+Expected: ImportError (no module `persona_mcp_store.store` yet).
 
 - [ ] **Step 3: Implement `store.py` (load + sample only)**
 
-Create `persona_pipeline/store.py`:
+Create `persona_mcp_store/store.py`:
 
 ```python
 """Query helpers over the per-country persona store.
@@ -504,7 +504,7 @@ Expected: 7/7 PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/store.py tests/unit/test_store.py
+git add persona_mcp_store/store.py tests/unit/test_store.py
 git commit -m "feat(store): add load + deterministic sample helpers"
 ```
 
@@ -514,7 +514,7 @@ git commit -m "feat(store): add load + deterministic sample helpers"
 
 **Files:**
 - Modify: `tests/unit/test_store.py`
-- Modify: `persona_pipeline/store.py`
+- Modify: `persona_mcp_store/store.py`
 
 - [ ] **Step 1: Append tests for distribution + get**
 
@@ -566,7 +566,7 @@ Expected: AttributeError (no `distribution` in store).
 
 - [ ] **Step 3: Implement `distribution` and `get` in `store.py`**
 
-Append to `persona_pipeline/store.py`:
+Append to `persona_mcp_store/store.py`:
 
 ```python
 def distribution(
@@ -596,7 +596,7 @@ Expected: 13/13 PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/store.py tests/unit/test_store.py
+git add persona_mcp_store/store.py tests/unit/test_store.py
 git commit -m "feat(store): add distribution and get helpers"
 ```
 
@@ -606,7 +606,7 @@ git commit -m "feat(store): add distribution and get helpers"
 
 **Files:**
 - Modify: `tests/unit/test_store.py`
-- Modify: `persona_pipeline/store.py`
+- Modify: `persona_mcp_store/store.py`
 
 - [ ] **Step 1: Append search tests**
 
@@ -666,7 +666,7 @@ Expected: AttributeError (no `search`).
 
 - [ ] **Step 3: Implement `search` in `store.py`**
 
-Append to `persona_pipeline/store.py`:
+Append to `persona_mcp_store/store.py`:
 
 ```python
 _TEXT_COLS: tuple[str, ...] = (
@@ -703,7 +703,7 @@ Expected: 17/17 PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/store.py tests/unit/test_store.py
+git add persona_mcp_store/store.py tests/unit/test_store.py
 git commit -m "feat(store): add substring search across persona text columns"
 ```
 
@@ -713,7 +713,7 @@ git commit -m "feat(store): add substring search across persona text columns"
 
 **Files:**
 - Test: `tests/unit/test_mcp_server.py`
-- Create: `persona_pipeline/mcp_server.py`
+- Create: `persona_mcp_store/mcp_server.py`
 
 The four `@mcp.tool()` functions are thin wrappers over `store`. Tests call them as plain Python functions (FastMCP's `tool()` decorator returns the wrapped function unchanged), which exercises argument validation + filter assembly + return shape without booting an MCP transport.
 
@@ -725,7 +725,7 @@ Create `tests/unit/test_mcp_server.py`:
 import polars as pl
 import pytest
 
-from persona_pipeline import mcp_server, store
+from persona_mcp_store import mcp_server, store
 
 
 @pytest.fixture
@@ -799,18 +799,18 @@ def test_get_persona_returns_none_when_missing(korea_store):
 Run: `uv run pytest tests/unit/test_mcp_server.py -v`
 Expected: ModuleNotFoundError.
 
-- [ ] **Step 3: Create `persona_pipeline/mcp_server.py`**
+- [ ] **Step 3: Create `persona_mcp_store/mcp_server.py`**
 
 ```python
 """MCP server exposing the persona store to LLM clients.
 
-Run with: `python -m persona_pipeline.mcp_server` (stdio transport).
+Run with: `python -m persona_mcp_store.mcp_server` (stdio transport).
 """
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from persona_pipeline import store
+from persona_mcp_store import store
 
 mcp = FastMCP("persona-store")
 
@@ -901,7 +901,7 @@ Expected: 7/7 PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add persona_pipeline/mcp_server.py tests/unit/test_mcp_server.py
+git add persona_mcp_store/mcp_server.py tests/unit/test_mcp_server.py
 git commit -m "feat(mcp): expose four tools (sample/search/distribution/get)"
 ```
 
@@ -910,15 +910,15 @@ git commit -m "feat(mcp): expose four tools (sample/search/distribution/get)"
 ### Task 8: CLI — replace stage commands with `build` + `serve`
 
 **Files:**
-- Modify: `persona_pipeline/cli/_paths.py`
-- Modify: `persona_pipeline/_config.py`
-- Create: `persona_pipeline/cli/build.py`
-- Create: `persona_pipeline/cli/serve.py`
-- Modify: `persona_pipeline/cli/app.py`
+- Modify: `persona_mcp_store/cli/_paths.py`
+- Modify: `persona_mcp_store/_config.py`
+- Create: `persona_mcp_store/cli/build.py`
+- Create: `persona_mcp_store/cli/serve.py`
+- Modify: `persona_mcp_store/cli/app.py`
 
 - [ ] **Step 1: Replace `cli/_paths.py`**
 
-Overwrite `persona_pipeline/cli/_paths.py`:
+Overwrite `persona_mcp_store/cli/_paths.py`:
 
 ```python
 """Per-country data paths."""
@@ -942,7 +942,7 @@ def store_path(country: str) -> Path:
 
 - [ ] **Step 2: Trim `_config.py`**
 
-Open `persona_pipeline/_config.py` and remove every constant except `ROW_GROUP_SIZE` (used by `io.py`). Constants to delete: anything related to `DEFAULT_MIN_SIZE`, `DEFAULT_MAX_SEGMENTS`, `SAMPLES_PER_SEGMENT`, `HOBBIES_PARSE_CAP_PER_SEGMENT`, `BATCH_SIZE`, etc. Keep only:
+Open `persona_mcp_store/_config.py` and remove every constant except `ROW_GROUP_SIZE` (used by `io.py`). Constants to delete: anything related to `DEFAULT_MIN_SIZE`, `DEFAULT_MAX_SEGMENTS`, `SAMPLES_PER_SEGMENT`, `HOBBIES_PARSE_CAP_PER_SEGMENT`, `BATCH_SIZE`, etc. Keep only:
 
 ```python
 ROW_GROUP_SIZE = 100_000  # value already in the file; preserve it
@@ -959,13 +959,13 @@ from __future__ import annotations
 import polars as pl
 import typer
 
-from persona_pipeline import io as io_mod
-from persona_pipeline.cli._paths import (
+from persona_mcp_store import io as io_mod
+from persona_mcp_store.cli._paths import (
     occupation_lookup_path, raw_path, store_path,
 )
-from persona_pipeline.cli.app import app
-from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.enrich import enrich
+from persona_mcp_store.cli.app import app
+from persona_mcp_store.mappings import get_mappings
+from persona_mcp_store.stages.enrich import enrich
 
 
 @app.command()
@@ -1004,7 +1004,7 @@ from __future__ import annotations
 
 import typer
 
-from persona_pipeline.cli.app import app
+from persona_mcp_store.cli.app import app
 
 
 @app.command()
@@ -1012,16 +1012,16 @@ def serve() -> None:
     """Run the MCP server (stdio transport).
 
     Connect from an MCP-aware client (Claude Desktop, Claude Code) by registering
-    a server pointing to `python -m persona_pipeline.mcp_server`.
+    a server pointing to `python -m persona_mcp_store.mcp_server`.
     """
-    from persona_pipeline.mcp_server import mcp
+    from persona_mcp_store.mcp_server import mcp
     typer.echo("starting persona-store MCP server (stdio)...", err=True)
     mcp.run()
 ```
 
 - [ ] **Step 5: Update `cli/app.py` to register only the surviving commands**
 
-Open `persona_pipeline/cli/app.py` and ensure only these submodules are imported / registered: `download` (`stages.py` currently hosts it — see Task 10), `classify-occupation`, `build`, `serve`. Replace any existing wiring with:
+Open `persona_mcp_store/cli/app.py` and ensure only these submodules are imported / registered: `download` (`stages.py` currently hosts it — see Task 10), `classify-occupation`, `build`, `serve`. Replace any existing wiring with:
 
 ```python
 import typer
@@ -1029,23 +1029,23 @@ import typer
 app = typer.Typer(help="Persona pipeline: build the per-country store and serve it over MCP.")
 
 # Register commands (each module attaches via @app.command())
-from persona_pipeline.cli import download  # noqa: F401, E402
-from persona_pipeline.cli import classify_occupation  # noqa: F401, E402
-from persona_pipeline.cli import build  # noqa: F401, E402
-from persona_pipeline.cli import serve  # noqa: F401, E402
+from persona_mcp_store.cli import download  # noqa: F401, E402
+from persona_mcp_store.cli import classify_occupation  # noqa: F401, E402
+from persona_mcp_store.cli import build  # noqa: F401, E402
+from persona_mcp_store.cli import serve  # noqa: F401, E402
 ```
 
 This requires extracting `download` and `classify-occupation` from the current `stages.py` into their own modules. Do that now:
 
-Create `persona_pipeline/cli/download.py`:
+Create `persona_mcp_store/cli/download.py`:
 
 ```python
 """CLI: download — fetch raw Nemotron parquet from HuggingFace."""
 import typer
 
-from persona_pipeline import io as io_mod
-from persona_pipeline.cli._paths import raw_path
-from persona_pipeline.cli.app import app
+from persona_mcp_store import io as io_mod
+from persona_mcp_store.cli._paths import raw_path
+from persona_mcp_store.cli.app import app
 
 
 @app.command()
@@ -1055,18 +1055,18 @@ def download(country: str) -> None:
     typer.echo(f"saved → {out}")
 ```
 
-Create `persona_pipeline/cli/classify_occupation.py`:
+Create `persona_mcp_store/cli/classify_occupation.py`:
 
 ```python
 """CLI: classify-occupation — run Anthropic Batches API classifier and write lookup parquet."""
 import polars as pl
 import typer
 
-from persona_pipeline import io as io_mod
-from persona_pipeline.cli._paths import occupation_lookup_path, raw_path
-from persona_pipeline.cli.app import app
-from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.classify_occupation import (
+from persona_mcp_store import io as io_mod
+from persona_mcp_store.cli._paths import occupation_lookup_path, raw_path
+from persona_mcp_store.cli.app import app
+from persona_mcp_store.mappings import get_mappings
+from persona_mcp_store.stages.classify_occupation import (
     DEFAULT_MODEL as CLS_MODEL,
     classify_occupations,
 )
@@ -1088,13 +1088,13 @@ def classify_occupation(country: str, model: str = CLS_MODEL) -> None:
 
 - [ ] **Step 6: Smoke check — CLI parses**
 
-Run: `uv run python -c "from persona_pipeline.cli.app import app; app(['--help'], standalone_mode=False)"`
+Run: `uv run python -c "from persona_mcp_store.cli.app import app; app(['--help'], standalone_mode=False)"`
 Expected: prints help with `download`, `classify-occupation`, `build`, `serve` commands and no others.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add persona_pipeline/cli/ persona_pipeline/_config.py
+git add persona_mcp_store/cli/ persona_mcp_store/_config.py
 git commit -m "feat(cli): add build + serve; split download / classify-occupation"
 ```
 
@@ -1103,28 +1103,28 @@ git commit -m "feat(cli): add build + serve; split download / classify-occupatio
 ### Task 9: Trim `validate.py`
 
 **Files:**
-- Modify: `persona_pipeline/validate.py`
+- Modify: `persona_mcp_store/validate.py`
 
 - [ ] **Step 1: Inspect current `validate.py`**
 
-Run: `cat persona_pipeline/validate.py`
+Run: `cat persona_mcp_store/validate.py`
 Identify which functions exist (likely `validate_enriched`, `validate_partitioned`, plus helpers).
 
 - [ ] **Step 2: Remove `validate_partitioned`**
 
-Edit `persona_pipeline/validate.py` and delete the `validate_partitioned` function and any segment_id-aware helpers it relies on.
+Edit `persona_mcp_store/validate.py` and delete the `validate_partitioned` function and any segment_id-aware helpers it relies on.
 
 If `validate_enriched` exists and is reusable (e.g. checks raw-axis presence), keep it but adapt the column expectation list to match the new store schema (`country`, `uuid`, all axes, raw text columns). If it only checked partition outputs, delete it instead and leave `validate.py` empty or remove the file (Task 10 will purge tests anyway).
 
 - [ ] **Step 3: Verify imports across the codebase**
 
-Run: `grep -rn "from persona_pipeline.validate\|import validate" persona_pipeline tests scripts 2>/dev/null`
+Run: `grep -rn "from persona_mcp_store.validate\|import validate" persona_mcp_store tests scripts 2>/dev/null`
 Expected: only references in soon-to-delete files (Task 10) — partition.py, stages.py, test_validate.py.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add persona_pipeline/validate.py
+git add persona_mcp_store/validate.py
 git commit -m "refactor(validate): drop partition-era validators"
 ```
 
@@ -1133,14 +1133,14 @@ git commit -m "refactor(validate): drop partition-era validators"
 ### Task 10: Delete archetype-card pipeline
 
 **Files (delete):**
-- `persona_pipeline/stages/partition.py`
-- `persona_pipeline/stages/archetype.py`
-- `persona_pipeline/stages/match.py`
-- `persona_pipeline/stages/simulate.py`
-- `persona_pipeline/cli/archetype.py`
-- `persona_pipeline/cli/match.py`
-- `persona_pipeline/cli/simulate.py`
-- `persona_pipeline/cli/stages.py`
+- `persona_mcp_store/stages/partition.py`
+- `persona_mcp_store/stages/archetype.py`
+- `persona_mcp_store/stages/match.py`
+- `persona_mcp_store/stages/simulate.py`
+- `persona_mcp_store/cli/archetype.py`
+- `persona_mcp_store/cli/match.py`
+- `persona_mcp_store/cli/simulate.py`
+- `persona_mcp_store/cli/stages.py`
 - `tests/unit/test_partition.py`
 - `tests/unit/test_match.py`
 - `tests/unit/test_workflow.py`
@@ -1154,14 +1154,14 @@ git commit -m "refactor(validate): drop partition-era validators"
 
 Run:
 ```bash
-git rm persona_pipeline/stages/partition.py \
-       persona_pipeline/stages/archetype.py \
-       persona_pipeline/stages/match.py \
-       persona_pipeline/stages/simulate.py \
-       persona_pipeline/cli/archetype.py \
-       persona_pipeline/cli/match.py \
-       persona_pipeline/cli/simulate.py \
-       persona_pipeline/cli/stages.py \
+git rm persona_mcp_store/stages/partition.py \
+       persona_mcp_store/stages/archetype.py \
+       persona_mcp_store/stages/match.py \
+       persona_mcp_store/stages/simulate.py \
+       persona_mcp_store/cli/archetype.py \
+       persona_mcp_store/cli/match.py \
+       persona_mcp_store/cli/simulate.py \
+       persona_mcp_store/cli/stages.py \
        tests/unit/test_partition.py \
        tests/unit/test_match.py \
        tests/unit/test_workflow.py \
@@ -1207,10 +1207,10 @@ If `test_mappings.py` references `parse_segment` or other deleted symbols, edit 
 
 Run:
 ```bash
-uv run python -c "from persona_pipeline.cli.app import app"
-uv run python -c "from persona_pipeline import store, mcp_server"
-uv run python -c "from persona_pipeline.stages.enrich import enrich"
-uv run python -c "from persona_pipeline.stages.classify_occupation import classify_occupations"
+uv run python -c "from persona_mcp_store.cli.app import app"
+uv run python -c "from persona_mcp_store import store, mcp_server"
+uv run python -c "from persona_mcp_store.stages.enrich import enrich"
+uv run python -c "from persona_mcp_store.stages.classify_occupation import classify_occupations"
 ```
 Expected: all import without error.
 
@@ -1234,7 +1234,7 @@ git commit -m "refactor: remove partition/archetype/match/simulate pipeline"
 Overwrite with:
 
 ```markdown
-# persona-pipeline
+# persona-mcp-store
 
 Multi-country raw-persona MCP server over Nemotron-Personas (USA / Japan / India / Singapore / Brazil / France / Korea, ~1M personas each). LLM clients query the server to fetch raw personas filtered by demographic axes.
 
@@ -1268,7 +1268,7 @@ LLM clients (Claude Desktop / Claude Code / external) connect to the MCP server,
 
 ## Country mappings
 
-`persona_pipeline/mappings/{korea,japan,...}.py` — per-country rules in a `CountryMappings` dataclass:
+`persona_mcp_store/mappings/{korea,japan,...}.py` — per-country rules in a `CountryMappings` dataclass:
 - `axes`: which demographic axes the store carries (Singapore has no region → 3 axes)
 - `region_source_col` + `region_map`: native administrative division → regional grouping
 - `occupation_group_definitions`: label → description fed to the classifier (Korea/Japan/USA/India). Singapore/Brazil/France use the dataset's native category column.
@@ -1276,7 +1276,7 @@ LLM clients (Claude Desktop / Claude Code / external) connect to the MCP server,
 ## Layout
 
 ```
-persona_pipeline/
+persona_mcp_store/
 ├── _config.py              constants (ROW_GROUP_SIZE)
 ├── mappings/               per-country rules + axis name constants
 ├── stages/
@@ -1303,16 +1303,16 @@ COUNTRY ?= Korea
 .PHONY: download classify build serve test
 
 download:
-	uv run python -m persona_pipeline.cli download $(COUNTRY)
+	uv run python -m persona_mcp_store.cli download $(COUNTRY)
 
 classify:
-	uv run python -m persona_pipeline.cli classify-occupation $(COUNTRY)
+	uv run python -m persona_mcp_store.cli classify-occupation $(COUNTRY)
 
 build:
-	uv run python -m persona_pipeline.cli build $(COUNTRY)
+	uv run python -m persona_mcp_store.cli build $(COUNTRY)
 
 serve:
-	uv run python -m persona_pipeline.cli serve
+	uv run python -m persona_mcp_store.cli serve
 
 test:
 	uv run pytest tests/ -v
@@ -1359,7 +1359,7 @@ Expected: schema has `country`, `uuid`, axes, raw text columns; row count ~1,000
 Run:
 ```bash
 uv run python -c "
-from persona_pipeline import store
+from persona_mcp_store import store
 out = store.sample('Korea', {'region': '수도권', 'age_gen': '청년', 'sex': '여자', 'occupation_group': '사무'}, n=3, seed=0)
 for r in out.iter_rows(named=True):
     print(r['uuid'], r['region'], r['age_gen'], r['sex'], r['occupation_group'])
@@ -1370,7 +1370,7 @@ Expected: 3 rows, all matching the axis filter, with non-empty persona text.
 
 - [ ] **Step 4: Verify MCP server starts (no client connect)**
 
-Run: `timeout 2 uv run python -m persona_pipeline.mcp_server || true`
+Run: `timeout 2 uv run python -m persona_mcp_store.mcp_server || true`
 Expected: process starts and waits on stdin (no stack trace). 2s timeout terminates it.
 
 - [ ] **Step 5: Final test run**

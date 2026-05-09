@@ -14,7 +14,7 @@ from pathlib import Path
 
 import polars as pl
 
-from persona_pipeline.mappings import get_mappings
+from persona_mcp_store.mappings import get_mappings
 
 ENV_DATA_DIR = "PERSONA_STORE_DATA_DIR"
 DEFAULT_STORE_DIR = "data/store"

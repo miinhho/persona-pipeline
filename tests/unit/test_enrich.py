@@ -1,8 +1,8 @@
 import pytest
 import polars as pl
 
-from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.enrich import enrich
+from persona_mcp_store.mappings import get_mappings
+from persona_mcp_store.stages.enrich import enrich
 
 KOREA = get_mappings("Korea")
 PERSONA_TEXT_COLS = list(KOREA.persona_columns.keys())  # 7 fields for Korea

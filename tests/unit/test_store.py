@@ -3,7 +3,7 @@ import json
 import polars as pl
 import pytest
 
-from persona_pipeline import store
+from persona_mcp_store import store
 
 
 @pytest.fixture

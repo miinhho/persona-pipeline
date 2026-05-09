@@ -1,5 +1,5 @@
 """France — 13 régions administratives (mapped from 100 départements), native PCS 8-group."""
-from persona_pipeline.mappings._base import (
+from persona_mcp_store.mappings._base import (
     CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
 )
 

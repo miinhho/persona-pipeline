@@ -1,5 +1,5 @@
 """Singapore — city-state, 3 axes (no region). 14 native occupation categories."""
-from persona_pipeline.mappings._base import (
+from persona_mcp_store.mappings._base import (
     CountryMappings, AGE_GEN, SEX, OCCUPATION_GROUP,
 )
 

@@ -1,5 +1,5 @@
 """country key → CountryMappings dispatcher."""
-from persona_pipeline.mappings._base import (
+from persona_mcp_store.mappings._base import (
     AGE,
     AGE_GEN,
     AGE_GEN_BOUNDS,
@@ -10,7 +10,7 @@ from persona_pipeline.mappings._base import (
     SEX,
     UUID,
 )
-from persona_pipeline.mappings import (
+from persona_mcp_store.mappings import (
     brazil, france, india, japan, korea, singapore, usa,
 )
 

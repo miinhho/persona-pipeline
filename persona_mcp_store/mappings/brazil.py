@@ -1,5 +1,5 @@
 """Brazil — IBGE 5 regiões, native CBO 11-group occupation column."""
-from persona_pipeline.mappings._base import (
+from persona_mcp_store.mappings._base import (
     CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
 )
 

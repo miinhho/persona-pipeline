@@ -7,7 +7,7 @@
         "run",
         "python",
         "-m",
-        "persona_pipeline.mcp_server"
+        "persona_mcp_store.mcp_server"
       ],
       "env": {}
     }

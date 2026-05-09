@@ -1,5 +1,5 @@
 [project]
-name = "persona-pipeline"
+name = "persona-mcp-store"
 version = "0.1.0"
 description = "Multi-country MCP server exposing raw Nemotron-Personas to LLM clients (sample / search / distribution / get)."
 requires-python = ">=3.11"
@@ -16,7 +16,7 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 mcp = ["mcp>=1.2", "anthropic>=0.40", "starlette>=0.40", "uvicorn>=0.30"]
 
 [project.scripts]
-persona-pipeline = "persona_pipeline.cli.app:app"
+persona-mcp-store = "persona_mcp_store.cli.app:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -25,7 +25,7 @@ testpaths = ["tests"]
 line-length = 100
 
 [tool.setuptools.packages.find]
-include = ["persona_pipeline*"]
+include = ["persona_mcp_store*"]
 
 [tool.uv]
 package = true

@@ -1,6 +1,6 @@
 import pytest
 
-from persona_pipeline.mappings import (
+from persona_mcp_store.mappings import (
     AGE_GEN, AGE_GEN_BOUNDS, COUNTRIES, OCCUPATION_GROUP, REGION, SEX,
     get_mappings,
 )

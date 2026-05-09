@@ -6,8 +6,8 @@ import polars as pl
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from persona_pipeline import mcp_server, store
-from persona_pipeline.mcp_server import _observe, _validate_axis_names
+from persona_mcp_store import mcp_server, store
+from persona_mcp_store.mcp_server import _observe, _validate_axis_names
 
 
 @pytest.fixture

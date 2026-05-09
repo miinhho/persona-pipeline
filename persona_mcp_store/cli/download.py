@@ -1,9 +1,9 @@
 """CLI: download — fetch raw Nemotron parquet from HuggingFace."""
 import typer
 
-from persona_pipeline import io as io_mod
-from persona_pipeline.cli._paths import raw_path
-from persona_pipeline.cli.app import app
+from persona_mcp_store import io as io_mod
+from persona_mcp_store.cli._paths import raw_path
+from persona_mcp_store.cli.app import app
 
 
 @app.command()

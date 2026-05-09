@@ -1,7 +1,7 @@
 """Remote-deploy concerns: ASGI app assembly with auth, rate limit, structured log.
 
 This module is *only* used by the `serve-http` CLI command. The stdio MCP server
-(`persona_pipeline.cli.serve`) does not import it.
+(`persona_mcp_store.cli.serve`) does not import it.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 
-from persona_pipeline import store
+from persona_mcp_store import store
 
 ENV_API_KEYS = "PERSONA_STORE_API_KEYS"
 ENV_RATE_LIMIT = "PERSONA_STORE_RATE_LIMIT"

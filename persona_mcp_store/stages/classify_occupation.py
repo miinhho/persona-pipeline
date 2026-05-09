@@ -18,7 +18,7 @@ from typing import Any
 
 import polars as pl
 
-from persona_pipeline.mappings import CountryMappings
+from persona_mcp_store.mappings import CountryMappings
 
 DEFAULT_MODEL = "claude-haiku-4-5"
 DEFAULT_POLL_INTERVAL = 15.0  # seconds
@@ -113,7 +113,7 @@ def classify_occupations(
             import anthropic
         except ImportError as e:
             raise RuntimeError(
-                "anthropic SDK not installed. Install with: pip install 'persona-pipeline[sim]'"
+                "anthropic SDK not installed. Install with: pip install 'persona-mcp-store[sim]'"
             ) from e
         client = anthropic.Anthropic()
 

@@ -1,5 +1,5 @@
 """India — 6 zones (mapped from 36 states/UTs), NCO 10-group occupation. Uses en_IN split only."""
-from persona_pipeline.mappings._base import (
+from persona_mcp_store.mappings._base import (
     CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
 )
 

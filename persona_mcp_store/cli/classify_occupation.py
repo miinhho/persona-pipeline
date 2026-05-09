@@ -2,11 +2,11 @@
 import polars as pl
 import typer
 
-from persona_pipeline import io as io_mod
-from persona_pipeline.cli._paths import occupation_lookup_path, raw_path
-from persona_pipeline.cli.app import app
-from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.classify_occupation import (
+from persona_mcp_store import io as io_mod
+from persona_mcp_store.cli._paths import occupation_lookup_path, raw_path
+from persona_mcp_store.cli.app import app
+from persona_mcp_store.mappings import get_mappings
+from persona_mcp_store.stages.classify_occupation import (
     DEFAULT_MODEL as CLS_MODEL,
     classify_occupations,
 )

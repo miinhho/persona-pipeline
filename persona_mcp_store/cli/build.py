@@ -4,12 +4,12 @@ from __future__ import annotations
 import polars as pl
 import typer
 
-from persona_pipeline import io as io_mod, store
-from persona_pipeline.cli._paths import occupation_lookup_path, raw_path
-from persona_pipeline.store import store_path
-from persona_pipeline.cli.app import app
-from persona_pipeline.mappings import get_mappings
-from persona_pipeline.stages.enrich import enrich
+from persona_mcp_store import io as io_mod, store
+from persona_mcp_store.cli._paths import occupation_lookup_path, raw_path
+from persona_mcp_store.store import store_path
+from persona_mcp_store.cli.app import app
+from persona_mcp_store.mappings import get_mappings
+from persona_mcp_store.stages.enrich import enrich
 
 
 @app.command()
