@@ -1,6 +1,6 @@
 """Brazil — IBGE 5 regiões, native CBO 11-group occupation column."""
 from persona_mcp_store.mappings._base import (
-    CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
+    CountryMappings, REGION, AGE_GEN, SEX,
 )
 
 
@@ -39,7 +39,7 @@ MAPPINGS = CountryMappings(
     country="Brazil",
     locale="pt",
     hf_split="train",
-    axes=[REGION, AGE_GEN, SEX, OCCUPATION_GROUP],
+    axes=[REGION, AGE_GEN, SEX],
     persona_columns={
         "persona": "[Resumo]",
         "professional_persona": "[Profissão]",
@@ -50,7 +50,5 @@ MAPPINGS = CountryMappings(
     },
     region_source_col="state",
     region_map=STATE_TO_REGIAO,
-    occupation_source_col="occupation",
-    occupation_group_definitions=None,
     age_gen_labels=["jovem", "adulto", "idoso"],
 )

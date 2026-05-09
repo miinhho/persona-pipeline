@@ -109,12 +109,8 @@ def _axes_filter(
     region: list[str] | None,
     age_gen: list[str] | None,
     sex: list[str] | None,
-    occupation_group: list[str] | None,
 ) -> dict | None:
-    filt = {
-        "region": region, "age_gen": age_gen,
-        "sex": sex, "occupation_group": occupation_group,
-    }
+    filt = {"region": region, "age_gen": age_gen, "sex": sex}
     filt = {k: v for k, v in filt.items() if v}
     return filt or None
 
@@ -136,9 +132,6 @@ def sample_personas(
     sex: Annotated[list[str] | None, Field(description=
         "Filter by sex. Values per country in 'personas://catalog/{country}'."
     )] = None,
-    occupation_group: Annotated[list[str] | None, Field(description=
-        "Filter by occupation group. Values per country in 'personas://catalog/{country}'."
-    )] = None,
     seed: Annotated[int, Field(ge=0, description=
         "Same (filter, n, seed) returns identical rows. Use for reproducibility."
     )] = 0,
@@ -151,7 +144,7 @@ def sample_personas(
     Sampling is deterministic for fixed (filter, n, seed).
     """
     _validate_country(country)
-    filt = _axes_filter(region, age_gen, sex, occupation_group)
+    filt = _axes_filter(region, age_gen, sex)
     if filt:
         _validate_axis_names(country, filt.keys(), purpose="filter axis")
         _validate_axis_values(country, filt)
@@ -184,14 +177,11 @@ def search_personas(
     sex: Annotated[list[str] | None, Field(description=
         "Optional sex filter."
     )] = None,
-    occupation_group: Annotated[list[str] | None, Field(description=
-        "Optional occupation group filter."
-    )] = None,
     ctx: Context | None = None,
 ) -> list[dict]:
     """Substring search across persona text fields, optionally constrained by axes."""
     _validate_country(country)
-    filt = _axes_filter(region, age_gen, sex, occupation_group)
+    filt = _axes_filter(region, age_gen, sex)
     if filt:
         _validate_axis_names(country, filt.keys(), purpose="filter axis")
         _validate_axis_values(country, filt)
@@ -220,15 +210,12 @@ def persona_distribution(
     sex: Annotated[list[str] | None, Field(description=
         "Optional sex filter applied before grouping."
     )] = None,
-    occupation_group: Annotated[list[str] | None, Field(description=
-        "Optional occupation group filter applied before grouping."
-    )] = None,
     ctx: Context | None = None,
 ) -> list[dict]:
     """Group filtered rows by `group_by` columns and return counts (descending)."""
     _validate_country(country)
     _validate_axis_names(country, group_by, purpose="group_by axis")
-    filt = _axes_filter(region, age_gen, sex, occupation_group)
+    filt = _axes_filter(region, age_gen, sex)
     if filt:
         _validate_axis_names(country, filt.keys(), purpose="filter axis")
         _validate_axis_values(country, filt)

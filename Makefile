@@ -1,12 +1,9 @@
 COUNTRY ?= Korea
 
-.PHONY: download classify build serve test
+.PHONY: download build serve test
 
 download:
 	uv run python -m persona_mcp_store.cli download $(COUNTRY)
-
-classify:
-	uv run python -m persona_mcp_store.cli classify-occupation $(COUNTRY)
 
 build:
 	uv run python -m persona_mcp_store.cli build $(COUNTRY)

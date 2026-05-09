@@ -6,25 +6,23 @@ Multi-country raw-persona MCP server over Nemotron-Personas (USA / Japan / India
 
 ```bash
 make download COUNTRY=Korea           # HF Nemotron-Personas-Korea
-make classify COUNTRY=Korea           # Anthropic Batches: occupation → group lookup
-make build COUNTRY=Korea              # write data/store/Korea.parquet
+make build COUNTRY=Korea              # write data/store/Korea.parquet + catalog sidecar
 make serve                            # run MCP server (stdio)
 ```
 
-`make build COUNTRY=Korea` requires `data/occupation_lookup/Korea.parquet`, which `classify` produces (committed to git as a versioned asset). Native-category countries (Singapore/Brazil/France) skip `classify`.
+No LLM call anywhere in the pipeline. `build` is pure polars: derive axes (region, age_gen, sex), sort, write parquet + catalog JSON.
 
 ## Pipeline
 
 ```
 raw (HF dataset, gitignore)
-  ↓ classify-occupation   Anthropic Batches → (occupation, occupation_group) lookup parquet (git-tracked)
-  ↓ build                 enrich raw with axes (region, age_gen, occupation_group) + sort
+  ↓ build                 enrich raw with axes (region, age_gen, sex) + sort
 data/store/{country}.parquet  + {country}.catalog.json (sidecar)
-                                (gitignore, deterministic from raw + lookup + code)
+                                (gitignore, deterministic from raw + code)
   ↓ serve
 MCP server (stdio) exposes:
   Tools (actions):
-  • sample_personas(country, n, region?, age_gen?, sex?, occupation_group?, seed?)
+  • sample_personas(country, n, region?, age_gen?, sex?, seed?)
   • search_personas(country, query, top_k, axes filters?)
   • persona_distribution(country, group_by, axes filters?)
   • get_persona(country, uuid)
@@ -107,9 +105,9 @@ server {
 ## Country mappings
 
 `persona_mcp_store/mappings/{korea,japan,...}.py` — per-country rules in a `CountryMappings` dataclass:
-- `axes`: which demographic axes the store carries (Singapore has no region → 3 axes)
+- `axes`: which demographic axes the store carries (Singapore is a city-state → no region axis)
 - `region_source_col` + `region_map`: native administrative division → regional grouping
-- `occupation_group_definitions`: label → description fed to the classifier (Korea/Japan/USA/India). Singapore/Brazil/France use the dataset's native category column.
+- `age_gen_labels`: ordered locale-specific age generation labels mapped to `AGE_GEN_BOUNDS`
 
 ## Layout
 
@@ -118,13 +116,12 @@ persona_mcp_store/
 ├── _config.py              constants (ROW_GROUP_SIZE)
 ├── mappings/               per-country rules + axis name constants
 ├── stages/
-│   ├── enrich.py           raw → store-shaped LazyFrame
-│   └── classify_occupation.py  Anthropic Batches occupation classifier
+│   └── enrich.py           raw → store-shaped LazyFrame
 ├── store.py                load / sample / distribution / get / search helpers
 ├── mcp_server.py           FastMCP server: 4 tools + 2 catalog resources
 ├── remote.py               streamable-http app: auth + rate limit + JSON logs + /health
 ├── io.py                   atomic parquet write + HF download
-└── cli/                    Typer commands (download, build, serve, serve-http, …)
+└── cli/                    Typer commands (download, build, serve, serve-http)
 
 tests/                      pytest
 docs/superpowers/           specs / plans

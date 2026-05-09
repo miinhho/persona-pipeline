@@ -1,8 +1,8 @@
 """Enrich raw Nemotron rows with derived axes and emit the store-shaped LazyFrame.
 
 Output schema (column order): country, uuid, region (if axis), age_gen, sex,
-occupation_group, age, province (if exists), occupation (if exists), hobbies,
-plus all persona text columns declared in `mapping.persona_columns`.
+age, province (if exists), occupation (if exists), hobbies, plus all persona
+text columns declared in `mapping.persona_columns`.
 
 Hobbies are parsed from the raw `hobbies_and_interests_list` string column
 (Python-list literal) into a `list[str]` column.
@@ -13,7 +13,7 @@ import polars as pl
 
 from persona_mcp_store.mappings import (
     AGE, AGE_GEN, AGE_GEN_BOUNDS, CountryMappings, HOBBIES_COL,
-    OCCUPATION_GROUP, REGION, SEX, UUID,
+    REGION, SEX, UUID,
 )
 
 
@@ -59,17 +59,8 @@ def _hobbies_expr() -> pl.Expr:
     )
 
 
-def enrich(
-    lf: pl.LazyFrame,
-    mapping: CountryMappings,
-    occupation_lookup: pl.LazyFrame | None = None,
-) -> pl.LazyFrame:
-    """Build the enriched LazyFrame to be written as the country store.
-
-    `occupation_lookup` is required when `mapping.occupation_group_definitions` is set
-    (Korea/Japan/USA/India). Native-category countries (Singapore/Brazil/France) pass None.
-    """
-    src = mapping.occupation_source_col
+def enrich(lf: pl.LazyFrame, mapping: CountryMappings) -> pl.LazyFrame:
+    """Build the enriched LazyFrame to be written as the country store."""
     schema_in = lf.collect_schema().names()
 
     derived: list[pl.Expr] = [_age_gen_expr(mapping)]
@@ -81,25 +72,7 @@ def enrich(
     if HOBBIES_COL in schema_in:
         derived.append(_hobbies_expr())
 
-    base = lf.with_columns(derived)
-
-    if mapping.occupation_group_definitions is None:
-        base = base.with_columns(pl.col(src).alias(OCCUPATION_GROUP))
-    else:
-        if occupation_lookup is None:
-            raise ValueError(
-                f"{mapping.country}: occupation_lookup required when occupation_group_definitions is set."
-            )
-        lookup = occupation_lookup.select([
-            pl.col("occupation").alias(src),
-            pl.col("occupation_group").alias(OCCUPATION_GROUP),
-        ])
-        base = (
-            base.join(lookup, on=src, how="left")
-            .with_columns(pl.col(OCCUPATION_GROUP).fill_null("Other"))
-        )
-
-    base = base.with_columns(pl.lit(mapping.country).alias("country"))
+    base = lf.with_columns(derived).with_columns(pl.lit(mapping.country).alias("country"))
 
     schema_now = base.collect_schema().names()
     persona_text_cols = [c for c in mapping.persona_columns if c in schema_now]
@@ -108,7 +81,7 @@ def enrich(
         + ([mapping.region_source_col]
            if mapping.region_source_col and mapping.region_source_col != REGION
            else [])
-        + ([src] if src != OCCUPATION_GROUP else [])
+        + (["occupation"] if "occupation" in schema_now else [])
         + (["hobbies"] if "hobbies" in schema_now else [])
         + persona_text_cols
     )

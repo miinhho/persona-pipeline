@@ -1,6 +1,6 @@
 """France — 13 régions administratives (mapped from 100 départements), native PCS 8-group."""
 from persona_mcp_store.mappings._base import (
-    CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
+    CountryMappings, REGION, AGE_GEN, SEX,
 )
 
 
@@ -89,7 +89,7 @@ MAPPINGS = CountryMappings(
     country="France",
     locale="fr",
     hf_split="train",
-    axes=[REGION, AGE_GEN, SEX, OCCUPATION_GROUP],
+    axes=[REGION, AGE_GEN, SEX],
     persona_columns={
         "persona": "[Résumé]",
         "professional_persona": "[Profession]",
@@ -100,7 +100,5 @@ MAPPINGS = CountryMappings(
     },
     region_source_col="departement",
     region_map=DEPARTEMENT_TO_REGION,
-    occupation_source_col="occupation",
-    occupation_group_definitions=None,
     age_gen_labels=["jeune", "adulte", "âgé"],
 )

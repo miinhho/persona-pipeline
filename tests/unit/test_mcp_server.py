@@ -19,7 +19,6 @@ def korea_store(tmp_path, monkeypatch):
             "region": "수도권" if i < 10 else "영남권",
             "age_gen": "청년" if i % 2 == 0 else "중장년",
             "sex": "여자" if i % 3 == 0 else "남자",
-            "occupation_group": "사무",
             "age": 30 + i, "province": "서울", "occupation": "사무원",
             "hobbies": ["독서"],
             "persona": f"persona {i}", "professional_persona": "",
@@ -137,7 +136,7 @@ def test_validate_axis_names_raises_tool_error_when_unknown():
     assert "foo" in msg
     assert "personas://catalog/Korea" in msg
     # Lists the valid axes for the country
-    for axis in ["region", "age_gen", "sex", "occupation_group"]:
+    for axis in ["region", "age_gen", "sex"]:
         assert axis in msg
 
 
@@ -242,7 +241,6 @@ def korea_with_catalog(tmp_path, monkeypatch):
             "region": "수도권" if i < 80 else "영남권",
             "age_gen": "청년" if i % 2 == 0 else "중장년",
             "sex": "여자" if i % 3 == 0 else "남자",
-            "occupation_group": "사무",
             "age": 30 + (i % 50), "province": "서울", "occupation": "사무원",
             "hobbies": ["독서"],
             "persona": f"persona {i}", "professional_persona": "",
@@ -260,7 +258,7 @@ def test_catalog_resource_lists_built_countries(korea_with_catalog):
     assert "Korea" in countries
     korea = next(c for c in payload if c["country"] == "Korea")
     assert korea["n_personas"] == 110
-    assert set(korea["axes"]) == {"region", "age_gen", "sex", "occupation_group"}
+    assert set(korea["axes"]) == {"region", "age_gen", "sex"}
 
 
 def test_catalog_resource_returns_empty_list_when_no_stores(tmp_path, monkeypatch):

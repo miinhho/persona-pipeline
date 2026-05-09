@@ -236,7 +236,7 @@ def korea_with_catalog_for_remote(tmp_path, monkeypatch):
     monkeypatch.setenv("PERSONA_STORE_DATA_DIR", str(tmp_path))
     rows = [
         {"country": "Korea", "uuid": "u", "region": "수도권", "age_gen": "청년",
-         "sex": "여자", "occupation_group": "사무", "age": 30, "province": "서울",
+         "sex": "여자", "age": 30, "province": "서울",
          "occupation": "사무원", "hobbies": ["독서"],
          "persona": "p", "professional_persona": "",
          "sports_persona": "", "arts_persona": "",

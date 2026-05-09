@@ -21,7 +21,7 @@ def korea_store(tmp_path, monkeypatch):
                 "country": "Korea",
                 "uuid": f"{region}-{sex}-{occ_grp}-{i}",
                 "region": region, "age_gen": age_gen, "sex": sex,
-                "occupation_group": occ_grp, "age": age + i,
+                "age": age + i,
                 "province": "서울", "occupation": "...",
                 "hobbies": ["독서"],
                 "persona": f"persona-text-{i}",
@@ -107,7 +107,6 @@ def test_get_returns_row_dict(korea_store):
     assert row["uuid"] == target_uuid
     assert row["region"] == "수도권"
     assert row["sex"] == "여자"
-    assert row["occupation_group"] == "사무"
 
 
 def test_get_returns_none_when_uuid_missing(korea_store):
@@ -118,14 +117,14 @@ def test_get_returns_none_when_uuid_missing(korea_store):
 def korea_search_store(tmp_path, monkeypatch):
     rows = [
         {"country": "Korea", "uuid": "u1", "region": "수도권", "age_gen": "청년",
-         "sex": "남자", "occupation_group": "전문가", "age": 28, "province": "서울",
+         "sex": "남자", "age": 28, "province": "서울",
          "occupation": "개발자", "hobbies": [],
          "persona": "강남에서 일하는 개발자입니다",
          "professional_persona": "백엔드 시니어",
          "sports_persona": "", "arts_persona": "", "travel_persona": "",
          "culinary_persona": "", "family_persona": ""},
         {"country": "Korea", "uuid": "u2", "region": "영남권", "age_gen": "노년",
-         "sex": "여자", "occupation_group": "농림어업", "age": 70, "province": "부산",
+         "sex": "여자", "age": 70, "province": "부산",
          "occupation": "농민", "hobbies": [],
          "persona": "어업 종사자입니다",
          "professional_persona": "갈치잡이",
@@ -183,7 +182,7 @@ def test_write_catalog_produces_expected_schema(korea_store):
     data = json.loads(out.read_text())
     assert data["country"] == "Korea"
     assert data["n_personas"] == 110  # fixture has 110 rows
-    assert set(data["axes"].keys()) == {"region", "age_gen", "sex", "occupation_group"}
+    assert set(data["axes"].keys()) == {"region", "age_gen", "sex"}
     assert data["axes"]["region"]["수도권"] == 80
     assert data["axes"]["region"]["영남권"] == 20
     assert data["axes"]["region"]["호남권"] == 10

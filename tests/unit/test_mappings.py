@@ -1,7 +1,7 @@
 import pytest
 
 from persona_mcp_store.mappings import (
-    AGE_GEN, AGE_GEN_BOUNDS, COUNTRIES, OCCUPATION_GROUP, REGION, SEX,
+    AGE_GEN, AGE_GEN_BOUNDS, COUNTRIES, REGION, SEX,
     get_mappings,
 )
 
@@ -9,7 +9,7 @@ from persona_mcp_store.mappings import (
 @pytest.mark.parametrize("country", COUNTRIES)
 def test_all_countries_share_minimum_axes(country):
     m = get_mappings(country)
-    assert AGE_GEN in m.axes and SEX in m.axes and OCCUPATION_GROUP in m.axes
+    assert AGE_GEN in m.axes and SEX in m.axes
     assert m.locale and m.hf_split
 
 

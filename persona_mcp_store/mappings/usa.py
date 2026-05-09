@@ -1,6 +1,6 @@
 """USA — US Census 4 regions (mapped from 52 states), SOC 22-group occupation."""
 from persona_mcp_store.mappings._base import (
-    CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
+    CountryMappings, REGION, AGE_GEN, SEX,
 )
 
 
@@ -32,39 +32,11 @@ STATE_TO_REGION: dict[str, str] = {
 
 # SOC 2018 Major Groups (22 + Military + Not in Workforce). The classifier uses
 # these descriptions to bucket the dataset's snake_case occupation strings.
-SOC_GROUP_DEFINITIONS: dict[str, str] = {
-    "Management": "Managers, executives, CEOs, CFOs, directors, supervisors, administrators, legislators.",
-    "Business and Financial": "Analysts, accountants, auditors, financial advisors, buyers, loan officers, tax preparers, HR, fundraisers.",
-    "Computer and Mathematical": "Software developers, programmers, data scientists, web developers, network admins, mathematicians, statisticians, actuaries.",
-    "Architecture and Engineering": "Architects, engineers (mechanical, electrical, civil, etc.), drafters, surveyors.",
-    "Life, Physical, and Social Science": "Scientists, biologists, chemists, physicists, geologists, psychologists, sociologists, researchers.",
-    "Community and Social Service": "Social workers, counselors, clergy, community/social-human service workers.",
-    "Legal": "Lawyers, judges, paralegals, law clerks.",
-    "Education": "Teachers, professors, instructors, tutors, librarians, school workers (kindergarten through postsecondary).",
-    "Arts, Design, Entertainment, Sports, and Media": "Artists, designers, musicians, actors, writers, editors, photographers, athletes, dancers, reporters, broadcast/media workers.",
-    "Healthcare Practitioners": "Physicians, nurses, pharmacists, dentists, veterinarians, therapists, surgeons.",
-    "Healthcare Support": "Nursing assistants, home-health aides, medical assistants, orderlies, phlebotomists, therapy assistants.",
-    "Protective Service": "Police, firefighters, security guards, correctional officers, detectives.",
-    "Food Preparation and Serving": "Cooks, chefs, waiters, bartenders, fast-food workers, hosts, dishwashers, counter workers.",
-    "Building and Grounds Cleaning": "Janitors, cleaners, groundskeepers, housekeeping, landscaping, pest control.",
-    "Personal Care and Service": "Barbers, hairdressers, childcare workers, fitness instructors, personal-care aides, funeral workers, tour guides.",
-    "Sales": "Sales reps, cashiers, retail clerks, telemarketers, real-estate agents, wholesale and insurance sales.",
-    "Office and Administrative Support": "Clerks, secretaries, receptionists, data-entry, billing, shipping, dispatchers, administrative assistants.",
-    "Farming, Fishing, and Forestry": "Farmers, ranchers, fishers, foresters, agricultural workers, loggers.",
-    "Construction and Extraction": "Construction workers, carpenters, electricians, plumbers, masons, roofers, painters, miners, pipefitters.",
-    "Installation, Maintenance, and Repair": "Mechanics, repair workers, installers, maintenance workers, repair technicians.",
-    "Production": "Assemblers, machinists, welders, production operators, fabricators, tool & die makers.",
-    "Transportation and Material Moving": "Drivers (truck/taxi/bus), pilots, transport workers, delivery, couriers, warehouse workers, laborers, freight handlers.",
-    "Military": "Military personnel, armed forces, soldiers, marines, navy, air force, national guard.",
-    "Not in Workforce": "Not in workforce, unemployed, homemakers, retirees, students.",
-}
-
-
 MAPPINGS = CountryMappings(
     country="USA",
     locale="en",
     hf_split="train",
-    axes=[REGION, AGE_GEN, SEX, OCCUPATION_GROUP],
+    axes=[REGION, AGE_GEN, SEX],
     persona_columns={
         "persona": "[Summary]",
         "professional_persona": "[Profession]",
@@ -75,7 +47,5 @@ MAPPINGS = CountryMappings(
     },
     region_source_col="state",
     region_map=STATE_TO_REGION,
-    occupation_source_col="occupation",
-    occupation_group_definitions=SOC_GROUP_DEFINITIONS,
     age_gen_labels=["young", "middle_aged", "elderly"],
 )

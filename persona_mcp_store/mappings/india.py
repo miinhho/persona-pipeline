@@ -1,6 +1,6 @@
 """India — 6 zones (mapped from 36 states/UTs), NCO 10-group occupation. Uses en_IN split only."""
 from persona_mcp_store.mappings._base import (
-    CountryMappings, REGION, AGE_GEN, SEX, OCCUPATION_GROUP,
+    CountryMappings, REGION, AGE_GEN, SEX,
 )
 
 
@@ -36,26 +36,11 @@ STATE_TO_ZONE: dict[str, str] = {
 # free-text occupation strings often look like "Building Construction Labourers, Other"
 # or "Market-Oriented Crop and Animal Producers, Other" — the classifier maps these
 # to the appropriate group using the descriptions below.
-NCO_GROUP_DEFINITIONS: dict[str, str] = {
-    "Managers": "Managers, directors, executives, officials, heads, chiefs, supervisors at any level.",
-    "Professionals": "Engineers, doctors, scientists, teachers, professors, lawyers, accountants, architects, software developers, designers, consultants — high-skill professional occupations.",
-    "Technicians and Associate Professionals": "Technicians, draftsmen, nurses, pharmacists, lab technicians, paramedics, computer operators, mid-skill technical workers.",
-    "Clerical Support Workers": "Clerks, secretaries, receptionists, data-entry, typists, office assistants, customer-service reps in clerical roles.",
-    "Service and Sales Workers": "Shop attendants, salespersons, market vendors, stall sellers, telemarketers, advertising sales agents, waiters, cooks, barbers, hairdressers, security/police/firefighters, hospitality workers.",
-    "Skilled Agricultural Workers": "Farmers, market-oriented crop/animal producers, horticulturists, fishermen, shepherds, plantation workers.",
-    "Craft and Related Trades Workers": "Carpenters, masons, tailors, weavers, electricians, plumbers, welders, mechanics, well-diggers and other skilled trades.",
-    "Plant and Machine Operators and Assemblers": "Machine/plant operators, drivers, conductors, pilots, assemblers, machinists, packing/filling machine tenders.",
-    "Elementary Occupations": "Labourers, construction/maintenance labourers, domestic helpers, cleaners, sweepers, porters, loaders, hawkers, rickshaw pullers, helpers, packers — unskilled physical work.",
-    "Armed Forces": "Army, navy, air force, soldiers, military officers.",
-    "Not in Workforce": "No occupation, retired, homemakers, students, unemployed.",
-}
-
-
 MAPPINGS = CountryMappings(
     country="India",
     locale="en",
     hf_split="en_IN",
-    axes=[REGION, AGE_GEN, SEX, OCCUPATION_GROUP],
+    axes=[REGION, AGE_GEN, SEX],
     persona_columns={
         "persona": "[Summary]",
         "professional_persona": "[Profession]",
@@ -66,7 +51,5 @@ MAPPINGS = CountryMappings(
     },
     region_source_col="state",
     region_map=STATE_TO_ZONE,
-    occupation_source_col="occupation",
-    occupation_group_definitions=NCO_GROUP_DEFINITIONS,
     age_gen_labels=["young", "middle_aged", "elderly"],
 )
