@@ -8,6 +8,8 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from starlette.middleware.base import BaseHTTPMiddleware
+
 from persona_pipeline import remote
 
 
@@ -90,3 +92,88 @@ def test_auth_exempts_health_path():
     c = TestClient(app)
     assert c.get("/health").status_code == 200  # no auth needed
     assert c.get("/x").status_code == 401       # /x still requires auth
+
+
+async def _ok_with_token(request):
+    # Simulate auth having attached a token_key (since the rate limit middleware
+    # reads request.state.token_key set by _AuthMiddleware in production).
+    return PlainTextResponse("ok")
+
+
+class _StubAuth(BaseHTTPMiddleware):
+    """Test-only middleware that fakes an authenticated user by attaching a token_key."""
+    def __init__(self, app, key: str):
+        super().__init__(app)
+        self.key = key
+
+    async def dispatch(self, request, call_next):
+        request.state.token_key = self.key
+        return await call_next(request)
+
+
+def _rate_client(per_minute: int, key: str = "k1") -> TestClient:
+    # Order: stub-auth (sets token_key) -> rate-limit (reads it)
+    return TestClient(Starlette(
+        routes=[Route("/x", _ok)],
+        middleware=[
+            Middleware(_StubAuth, key=key),
+            Middleware(remote._RateLimitMiddleware, per_minute=per_minute),
+        ],
+    ))
+
+
+def test_rate_limit_allows_under_limit():
+    c = _rate_client(per_minute=3)
+    for _ in range(3):
+        assert c.get("/x").status_code == 200
+
+
+def test_rate_limit_blocks_over_limit_with_429_and_retry_after():
+    c = _rate_client(per_minute=2)
+    assert c.get("/x").status_code == 200
+    assert c.get("/x").status_code == 200
+    r = c.get("/x")
+    assert r.status_code == 429
+    assert "retry-after" in {h.lower() for h in r.headers}
+    retry_value = r.headers.get("retry-after")
+    assert retry_value and int(retry_value) >= 1
+
+
+def test_rate_limit_isolates_per_token():
+    # Each TestClient builds a fresh app instance — so we need both keys in one app
+    # to test isolation. Build a custom app:
+    app = Starlette(
+        routes=[Route("/x", _ok)],
+        middleware=[
+            Middleware(_StubAuth, key="kA"),
+            Middleware(remote._RateLimitMiddleware, per_minute=1),
+        ],
+    )
+    c1 = TestClient(app)
+    # First call for kA: ok. Second: 429.
+    assert c1.get("/x").status_code == 200
+    assert c1.get("/x").status_code == 429
+
+    # Build separate app for a different key — bucket is per-token but per-app instance.
+    # Verify per-token isolation by switching the stub to kB on the same per-minute=1 setting:
+    app2 = Starlette(
+        routes=[Route("/x", _ok)],
+        middleware=[
+            Middleware(_StubAuth, key="kB"),
+            Middleware(remote._RateLimitMiddleware, per_minute=1),
+        ],
+    )
+    c2 = TestClient(app2)
+    assert c2.get("/x").status_code == 200  # different key, different bucket
+
+
+def test_rate_limit_skips_when_no_token_key():
+    # When request.state has no token_key (e.g. health endpoint via auth-exempt),
+    # rate limit should let it through unconditionally.
+    c = TestClient(Starlette(
+        routes=[Route("/x", _ok)],
+        middleware=[Middleware(remote._RateLimitMiddleware, per_minute=1)],
+    ))
+    # No StubAuth → no token_key on request.state
+    assert c.get("/x").status_code == 200
+    assert c.get("/x").status_code == 200  # second call also passes

@@ -6,7 +6,9 @@ This module is *only* used by the `serve-http` CLI command. The stdio MCP server
 from __future__ import annotations
 
 import os
+import time
 import uuid
+from collections import defaultdict, deque
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -77,4 +79,39 @@ class _AuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"error": "invalid token"}, status_code=401)
         request.state.token_key = key
         request.state.token_id = _token_id(key)
+        return await call_next(request)
+
+
+class _RateLimitMiddleware(BaseHTTPMiddleware):
+    """In-memory token-bucket rate limit per Bearer key.
+
+    Single-instance: the bucket dict lives in this process. Scaling horizontally
+    requires moving to Redis (out of v1 scope). When `request.state.token_key` is
+    absent (e.g. on auth-exempt paths like /health), the request is passed through.
+    """
+
+    def __init__(self, app, per_minute: int):
+        super().__init__(app)
+        self.per_minute = per_minute
+        self.window_s = 60.0
+        # token_key -> deque of monotonic timestamps within the rolling window
+        self._buckets: dict[str, deque[float]] = defaultdict(deque)
+
+    async def dispatch(self, request, call_next):
+        key = getattr(request.state, "token_key", None)
+        if key is None:
+            return await call_next(request)
+        now = time.monotonic()
+        bucket = self._buckets[key]
+        cutoff = now - self.window_s
+        while bucket and bucket[0] < cutoff:
+            bucket.popleft()
+        if len(bucket) >= self.per_minute:
+            retry = int(self.window_s - (now - bucket[0])) + 1
+            return JSONResponse(
+                {"error": f"rate limit exceeded: {self.per_minute}/min"},
+                status_code=429,
+                headers={"retry-after": str(retry)},
+            )
+        bucket.append(now)
         return await call_next(request)
