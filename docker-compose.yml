@@ -1,0 +1,17 @@
+services:
+  persona-store:
+    build: .
+    image: persona-store:latest
+    container_name: persona-store
+    environment:
+      # Required: comma-separated bearer tokens
+      PERSONA_STORE_API_KEYS: ${PERSONA_STORE_API_KEYS:?set in .env or shell}
+      # Optional: requests per minute per token (default 60)
+      PERSONA_STORE_RATE_LIMIT: "60"
+    volumes:
+      # Read-only mount of the host store directory
+      - ./data/store:/data:ro
+    ports:
+      # Bind to localhost only; expose to internet via reverse proxy
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped

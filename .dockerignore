@@ -1,0 +1,25 @@
+# Local data / caches (mount via volume instead)
+data/
+.venv/
+.uv-cache/
+
+# Python build/test output
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# VCS / editor / docs
+.git/
+.gitignore
+.github/
+.claude/
+.mcp.json
+docs/
+README.md
+Makefile
+
+# Tests aren't needed at runtime
+tests/
+scripts/
