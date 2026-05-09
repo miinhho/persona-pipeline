@@ -45,6 +45,11 @@ match:
 	@test -n "$(Q)" || (echo "Usage: make match COUNTRY=Korea Q='your query'" && exit 1)
 	$(PY) match $(COUNTRY) "$(Q)"
 
+TOP_N ?= 5
+simulate:
+	@test -n "$(TASK)" || (echo "Usage: make simulate COUNTRY=Korea TASK='...' [TOP_N=5]" && exit 1)
+	$(PY) simulate $(COUNTRY) --task "$(TASK)" --top-n $(TOP_N)
+
 build-all:
 	@for c in $(COUNTRIES); do $(MAKE) --no-print-directory build COUNTRY=$$c || exit 1; done
 

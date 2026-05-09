@@ -9,6 +9,7 @@ make download COUNTRY=Korea          # HF Nemotron-Personas-Korea
 make build COUNTRY=Korea             # enrich → partition
 make archetype COUNTRY=Korea         # archetype cards
 make match COUNTRY=Korea Q='서울 30대 남자 PM'
+make simulate COUNTRY=Korea TASK='이번 주말에 뭐 하실 거예요?' TOP_N=5    # needs ANTHROPIC_API_KEY + pip install '.[sim]'
 
 make build-all                       # all 7 countries sequentially
 ```
@@ -21,6 +22,7 @@ raw (HF dataset)
   ↓ partition  segment_id + per-segment cascading backoff (L0 → L1 → L2)
   ↓ archetype  per-segment stats + 5 uniformly-random persona samples
   ↓ match      NL query → axis match (substring + fuzzy fallback) → top-K archetypes
+  ↓ simulate   archetype card → Claude system prompt → fan task across N segments → parquet
 ```
 
 ## Country mappings

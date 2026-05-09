@@ -22,3 +22,7 @@ def partitioned_path(country: str) -> Path:
 
 def archetypes_path(country: str) -> Path:
     return DATA / "archetypes" / f"cards_{country}.parquet"
+
+
+def simulations_path(country: str, run_id: str) -> Path:
+    return DATA / "simulations" / f"{country}_{run_id}.parquet"
