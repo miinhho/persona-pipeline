@@ -19,13 +19,18 @@ make serve                            # run MCP server (stdio)
 raw (HF dataset, gitignore)
   ↓ classify-occupation   Anthropic Batches → (occupation, occupation_group) lookup parquet (git-tracked)
   ↓ build                 enrich raw with axes (region, age_gen, occupation_group) + sort
-data/store/{country}.parquet  (gitignore, deterministic from raw + lookup + code)
+data/store/{country}.parquet  + {country}.catalog.json (sidecar)
+                                (gitignore, deterministic from raw + lookup + code)
   ↓ serve
 MCP server (stdio) exposes:
+  Tools (actions):
   • sample_personas(country, n, region?, age_gen?, sex?, occupation_group?, seed?)
   • search_personas(country, query, top_k, axes filters?)
   • persona_distribution(country, group_by, axes filters?)
   • get_persona(country, uuid)
+  Resources (catalog discovery):
+  • personas://catalog                  → list of built countries
+  • personas://catalog/{country}        → axes with value counts + schema
 ```
 
 LLM clients (Claude Desktop / Claude Code / external) connect to the MCP server, sample raw personas, and use them as system-prompt material in their own simulation/analysis flows. We do not host simulation.
@@ -47,7 +52,7 @@ persona_pipeline/
 │   ├── enrich.py           raw → store-shaped LazyFrame
 │   └── classify_occupation.py  Anthropic Batches occupation classifier
 ├── store.py                load / sample / distribution / get / search helpers
-├── mcp_server.py           FastMCP server with four tools
+├── mcp_server.py           FastMCP server: 4 tools + 2 catalog resources
 ├── io.py                   atomic parquet write + HF download
 └── cli/                    Typer commands
 

@@ -242,3 +242,40 @@ def test_country_catalog_resource_returns_axes_and_counts(korea_with_catalog):
 def test_country_catalog_resource_unknown_country_raises_value_error():
     with pytest.raises(ValueError, match="unknown country"):
         mcp_server.country_catalog("Atlantis")
+
+
+def test_search_personas_empty_result_warns(korea_store):
+    ctx = MagicMock()
+    out = mcp_server.search_personas(
+        country="Korea", query="지구상에없는단어", top_k=10, ctx=ctx
+    )
+    assert out == []
+    ctx.warning.assert_called_once()
+    warn_msg = ctx.warning.call_args.args[0]
+    assert "no matches" in warn_msg.lower()
+
+
+import asyncio
+
+
+def test_sample_personas_n_zero_raises_validation_through_mcp_path(korea_store):
+    """
+    Field(ge=1) enforcement only fires when invoked through the FastMCP call path
+    (it runs Pydantic model_validate on the tool args). Calling the function
+    directly bypasses validation. This test exercises the real path.
+    """
+    async def _call():
+        return await mcp_server.mcp.call_tool(
+            "sample_personas", {"country": "Korea", "n": 0}
+        )
+
+    with pytest.raises(Exception) as exc_info:
+        asyncio.run(_call())
+    msg = str(exc_info.value).lower()
+    # Pydantic v2 message contains "greater than or equal to 1"; FastMCP may wrap it
+    assert any(s in msg for s in (
+        "greater than or equal to 1",
+        "input should be",
+        "ge=1",
+        "validation",
+    )), f"unexpected error message: {exc_info.value!r}"

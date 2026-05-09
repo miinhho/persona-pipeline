@@ -6,9 +6,13 @@ predicate-pushed down to row-group level.
 """
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import polars as pl
+
+from persona_pipeline.mappings import get_mappings
 
 DATA = Path("data")
 
@@ -71,12 +75,6 @@ def get(country: str, uuid: str) -> dict | None:
     """Look up one persona by uuid; return its row as a dict, or None if missing."""
     df = load(country).filter(pl.col("uuid") == uuid).limit(1).collect()
     return df.row(0, named=True) if df.height else None
-
-
-import json
-from datetime import datetime, timezone
-
-from persona_pipeline.mappings import get_mappings
 
 
 def catalog_path(country: str) -> Path:
