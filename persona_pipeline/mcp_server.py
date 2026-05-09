@@ -228,18 +228,16 @@ def get_persona(
 )
 def catalog() -> str:
     """Return JSON list of built countries discovered via *.catalog.json sidecars."""
-    countries: list[dict] = []
-    # Discover by globbing the directory of any country's would-be store path.
-    # `store.store_path("_")` resolves the parent directory regardless of the country.
-    store_dir = store.store_path("_").parent
-    if store_dir.exists():
-        for path in sorted(store_dir.glob("*.catalog.json")):
-            data = json.loads(path.read_text())
-            countries.append({
-                "country": data["country"],
-                "n_personas": data["n_personas"],
-                "axes": list(data["axes"].keys()),
-            })
+    countries = []
+    for c in store.list_built_countries():
+        data = store.load_catalog(c)
+        if data is None:
+            continue
+        countries.append({
+            "country": data["country"],
+            "n_personas": data["n_personas"],
+            "axes": list(data["axes"].keys()),
+        })
     return json.dumps(countries, ensure_ascii=False)
 
 

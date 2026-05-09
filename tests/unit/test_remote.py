@@ -1,14 +1,16 @@
 """Tests for persona_pipeline.remote (ASGI middleware + build_app)."""
 from __future__ import annotations
 
+import json as _json
+from unittest.mock import MagicMock
+
 import pytest
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
-
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from persona_pipeline import remote
 
@@ -178,11 +180,7 @@ def test_rate_limit_skips_when_no_token_key():
     assert c.get("/x").status_code == 200  # second call also passes
 
 
-import json as _json
-
-
 def test_structured_log_emits_json_line_to_stderr(capsys):
-    # Build app with request_id + stub-auth + log middleware so all fields are populated
     app = Starlette(
         routes=[Route("/x", _ok)],
         middleware=[
@@ -191,9 +189,6 @@ def test_structured_log_emits_json_line_to_stderr(capsys):
             Middleware(remote._StructuredLogMiddleware),
         ],
     )
-    # Patch _token_id onto request.state so the log can pick it up. The stub auth
-    # only sets token_key, but the log middleware reads token_id. In production,
-    # _AuthMiddleware sets both. Use a richer stub here.
     c = TestClient(app)
     r = c.get("/x")
     assert r.status_code == 200
@@ -215,7 +210,7 @@ def test_structured_log_includes_token_id_when_attached(capsys):
     class _StubBoth(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):
             request.state.token_key = "kfull"
-            request.state.token_id = "kfull"[:6] + "…"
+            request.state.token_id = remote._token_id("kfull")
             return await call_next(request)
 
     app = Starlette(
@@ -229,7 +224,7 @@ def test_structured_log_includes_token_id_when_attached(capsys):
     TestClient(app).get("/x")
     err = capsys.readouterr().err
     record = _json.loads([ln for ln in err.splitlines() if ln.strip().startswith("{")][-1])
-    assert record["token_id"] == "kfull…"
+    assert record["token_id"] == remote._token_id("kfull")
 
 
 @pytest.fixture
@@ -250,9 +245,6 @@ def korea_with_catalog_for_remote(tmp_path, monkeypatch):
     pl.DataFrame(rows).write_parquet(tmp_path / "Korea.parquet", compression="zstd")
     store.write_catalog("Korea")
     return tmp_path
-
-
-from unittest.mock import MagicMock
 
 
 def _stub_mcp() -> MagicMock:
@@ -332,7 +324,7 @@ def test_structured_log_captures_rate_limit_rejection(capsys, monkeypatch):
     app = remote.build_app(_stub_mcp())
     c = TestClient(app)
     # First request: ok
-    r1 = c.post("/mcp", json={}, headers={"authorization": "Bearer k1"})
+    c.post("/mcp", json={}, headers={"authorization": "Bearer k1"})
     # Second: rate limited
     r2 = c.post("/mcp", json={}, headers={"authorization": "Bearer k1"})
     assert r2.status_code == 429

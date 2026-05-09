@@ -1,8 +1,9 @@
 """Query helpers over the per-country persona store.
 
-The store is a single parquet at `data/store/{country}.parquet` produced by the
-`build` CLI. All helpers operate on polars LazyFrames so axis filters get
-predicate-pushed down to row-group level.
+The store is a single parquet at `<store_dir>/{country}.parquet` produced by the
+`build` CLI, where `<store_dir>` defaults to `data/store` and is overridable via
+the `PERSONA_STORE_DATA_DIR` env var. All helpers operate on polars LazyFrames
+so axis filters get predicate-pushed down to row-group level.
 """
 from __future__ import annotations
 
@@ -15,17 +16,17 @@ import polars as pl
 
 from persona_pipeline.mappings import get_mappings
 
-def _store_dir() -> Path:
-    """Resolve the per-country store directory.
+ENV_DATA_DIR = "PERSONA_STORE_DATA_DIR"
+DEFAULT_STORE_DIR = "data/store"
 
-    Defaults to `data/store` (local dev). Overridable via the
-    `PERSONA_STORE_DATA_DIR` env var so containers can point at a mounted volume.
-    """
-    return Path(os.environ.get("PERSONA_STORE_DATA_DIR", "data/store"))
+
+def store_dir() -> Path:
+    """Per-country store directory. Reads `PERSONA_STORE_DATA_DIR` on each call."""
+    return Path(os.environ.get(ENV_DATA_DIR, DEFAULT_STORE_DIR))
 
 
 def store_path(country: str) -> Path:
-    return _store_dir() / f"{country}.parquet"
+    return store_dir() / f"{country}.parquet"
 
 
 def load(country: str) -> pl.LazyFrame:
@@ -128,6 +129,14 @@ def load_catalog(country: str) -> dict | None:
     if not path.exists():
         return None
     return json.loads(path.read_text())
+
+
+def list_built_countries() -> list[str]:
+    """Return sorted list of countries with a catalog sidecar on disk."""
+    return sorted(
+        p.name.removesuffix(".catalog.json")
+        for p in store_dir().glob("*.catalog.json")
+    )
 
 
 _TEXT_COLS: tuple[str, ...] = (

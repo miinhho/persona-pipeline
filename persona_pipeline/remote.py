@@ -21,6 +21,10 @@ from starlette.routing import Mount, Route
 
 from persona_pipeline import store
 
+ENV_API_KEYS = "PERSONA_STORE_API_KEYS"
+ENV_RATE_LIMIT = "PERSONA_STORE_RATE_LIMIT"
+DEFAULT_RATE_LIMIT = 60
+
 
 class _RequestIdMiddleware(BaseHTTPMiddleware):
     """Attach an x-request-id to each request and echo it back in the response.
@@ -40,18 +44,14 @@ class _RequestIdMiddleware(BaseHTTPMiddleware):
 def _load_api_keys() -> set[str]:
     """Read comma-separated bearer tokens from `PERSONA_STORE_API_KEYS`.
 
-    Raises RuntimeError if unset or empty after trimming — fail fast, never run
-    a remote server with no auth.
+    Raises RuntimeError if unset or yielding no usable tokens — fail fast, never
+    run a remote server with no auth.
     """
-    raw = os.environ.get("PERSONA_STORE_API_KEYS", "").strip()
-    if not raw:
-        raise RuntimeError(
-            "PERSONA_STORE_API_KEYS env var is required (comma-separated tokens)."
-        )
+    raw = os.environ.get(ENV_API_KEYS, "")
     keys = {k.strip() for k in raw.split(",") if k.strip()}
     if not keys:
         raise RuntimeError(
-            "PERSONA_STORE_API_KEYS env var is required (comma-separated tokens)."
+            f"{ENV_API_KEYS} env var is required (comma-separated tokens)."
         )
     return keys
 
@@ -98,10 +98,11 @@ class _RateLimitMiddleware(BaseHTTPMiddleware):
     absent (e.g. on auth-exempt paths like /health), the request is passed through.
     """
 
+    _WINDOW_S = 60.0
+
     def __init__(self, app, per_minute: int):
         super().__init__(app)
         self.per_minute = per_minute
-        self.window_s = 60.0
         # token_key -> deque of monotonic timestamps within the rolling window
         self._buckets: dict[str, deque[float]] = defaultdict(deque)
 
@@ -111,11 +112,11 @@ class _RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         now = time.monotonic()
         bucket = self._buckets[key]
-        cutoff = now - self.window_s
+        cutoff = now - self._WINDOW_S
         while bucket and bucket[0] < cutoff:
             bucket.popleft()
         if len(bucket) >= self.per_minute:
-            retry = int(self.window_s - (now - bucket[0])) + 1
+            retry = int(self._WINDOW_S - (now - bucket[0])) + 1
             return JSONResponse(
                 {"error": f"rate limit exceeded: {self.per_minute}/min"},
                 status_code=429,
@@ -146,20 +147,13 @@ class _StructuredLogMiddleware(BaseHTTPMiddleware):
             "status": response.status_code,
             "elapsed_ms": elapsed_ms,
         }
-        print(json.dumps(record, ensure_ascii=False), file=sys.stderr, flush=True)
+        print(json.dumps(record, ensure_ascii=False), file=sys.stderr)
         return response
 
 
 async def _health(request: Request) -> Response:
     """Liveness/readiness check. Lists built country stores discovered via sidecars."""
-    countries: list[str] = []
-    store_dir = store.store_path("_").parent
-    if store_dir.exists():
-        countries = sorted(
-            p.name.replace(".catalog.json", "")
-            for p in store_dir.glob("*.catalog.json")
-        )
-    return JSONResponse({"status": "ok", "stores": countries})
+    return JSONResponse({"status": "ok", "stores": store.list_built_countries()})
 
 
 def build_app(mcp) -> Starlette:
@@ -177,7 +171,7 @@ def build_app(mcp) -> Starlette:
       - everything else  — mounted FastMCP streamable-http app at root
     """
     api_keys = _load_api_keys()
-    rate = int(os.environ.get("PERSONA_STORE_RATE_LIMIT", "60"))
+    rate = int(os.environ.get(ENV_RATE_LIMIT, str(DEFAULT_RATE_LIMIT)))
 
     mcp_asgi = mcp.streamable_http_app()
 
