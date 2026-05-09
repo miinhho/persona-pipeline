@@ -52,21 +52,9 @@ MAPPINGS = CountryMappings(
     region_map=STATE_TO_REGIAO,
     occupation_source_col="occupation",
     occupation_group_definitions=None,
-    region_keywords={
-        "Norte": ["norte", "amazonas", "pará", "acre"],
-        "Nordeste": ["nordeste", "bahia", "ceará", "pernambuco", "salvador", "recife"],
-        "Centro-Oeste": ["centro-oeste", "centro oeste", "brasília", "goiás", "goiana"],
-        "Sudeste": ["sudeste", "são paulo", "rio de janeiro", "minas gerais", "paulistano", "carioca"],
-        "Sul": ["sul", "porto alegre", "curitiba", "florianópolis", "gaúcho", "paranaense"],
-    },
     age_gen_keywords={
         "jovem": ["jovem", "juventude", "20 anos", "30 anos"],
         "adulto": ["adulto", "meia-idade", "40 anos", "50 anos"],
         "idoso": ["idoso", "idosa", "velho", "velha", "60 anos", "70 anos"],
     },
-    sex_keywords={
-        "Masculino": ["homem", "masculino", "rapaz"],
-        "Feminino": ["mulher", "feminino", "moça"],
-    },
-    occupation_keywords={occ: occ.split()[:3] for occ in NATIVE_OCCUPATIONS},
 )

@@ -45,9 +45,6 @@ class CountryMappings:
     occupation_source_col: str = "occupation"
     occupation_group_definitions: dict[str, str] | None = None
 
-    region_keywords: dict[str, list[str]] = field(default_factory=dict)
     age_gen_keywords: dict[str, list[str]] = field(default_factory=dict)
-    sex_keywords: dict[str, list[str]] = field(default_factory=dict)
-    occupation_keywords: dict[str, list[str]] = field(default_factory=dict)
 
 

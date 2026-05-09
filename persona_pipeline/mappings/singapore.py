@@ -34,11 +34,4 @@ MAPPINGS = CountryMappings(
         "middle_aged": ["middle", "middle-aged", "30s", "40s", "50s"],
         "elderly": ["elderly", "old", "senior", "60s", "70s", "80s"],
     },
-    sex_keywords={
-        "Male": ["male", "man", "men", "guy", "boy"],
-        "Female": ["female", "woman", "women", "girl", "lady"],
-    },
-    occupation_keywords={
-        occ: [occ, *occ.lower().split()[:2]] for occ in NATIVE_OCCUPATIONS
-    },
 )
