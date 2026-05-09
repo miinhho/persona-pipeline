@@ -10,7 +10,5 @@ __pycache__/
 
 # Data outputs (1회성 / 재생성 가능)
 data/raw/
-data/cache/
-data/archetypes/
+data/store/
 data/analysis/
-data/simulations/
